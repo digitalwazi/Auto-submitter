@@ -11,6 +11,7 @@ const nextConfig = {
       config.externals = [...(config.externals || []), 'playwright'];
     }
     return config;
-  }
+  },
+}
 
 module.exports = nextConfig
