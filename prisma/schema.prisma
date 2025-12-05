@@ -1,0 +1,230 @@
+// Prisma Schema for Auto Submitter
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Campaign {
+  id                String   @id @default(cuid())
+  name              String
+  status            CampaignStatus @default(CREATED)
+  processingMode    ProcessingMode @default(MANUAL)
+  
+  // Settings
+  maxPagesPerDomain Int      @default(50)
+  submitForms       Boolean  @default(true)
+  submitComments    Boolean  @default(true)
+  messageTemplate   String   @default("")
+  senderName        String   @default("")
+  senderEmail       String   @default("")
+  
+  // Stats
+  totalDomains      Int      @default(0)
+  processedDomains  Int      @default(0)
+  totalPages        Int      @default(0)
+  formsSubmitted    Int      @default(0)
+  commentsSubmitted Int      @default(0)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  startedAt         DateTime?
+  completedAt       DateTime?
+  
+  // Relations
+  domains           Domain[]
+  pages             PageDiscovery[]
+  submissions       SubmissionLog[]
+  contacts          ExtractedContact[]
+  
+  @@index([status])
+  @@index([processingMode])
+}
+
+model Domain {
+  id                String   @id @default(cuid())
+  campaignId        String
+  url               String
+  status            DomainStatus @default(PENDING)
+  
+  // Discovery results
+  hasRobotsTxt      Boolean  @default(false)
+  robotsTxtContent  String?  @db.Text
+  sitemapsFound     Int      @default(0)
+  pagesDiscovered   Int      @default(0)
+  
+  // Processing
+  processedAt       DateTime?
+  errorMessage      String?  @db.Text
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  pages             PageDiscovery[]
+  contacts          ExtractedContact[]
+  
+  @@index([campaignId])
+  @@index([status])
+  @@unique([campaignId, url])
+}
+
+model PageDiscovery {
+  id                String   @id @default(cuid())
+  campaignId        String
+  domainId          String
+  url               String
+  
+  // Page info
+  title             String?
+  hasForm           Boolean  @default(false)
+  hasComments       Boolean  @default(false)
+  
+  // Form details
+  formFields        Json?    // Array of field objects
+  formAction        String?
+  formMethod        String?
+  
+  // Comment details
+  commentType       String?  // wordpress, disqus, custom, etc.
+  commentFields     Json?
+  
+  discoveredAt      DateTime @default(now())
+  
+  // Relations
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  domain            Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  submissions       SubmissionLog[]
+  
+  @@index([campaignId])
+  @@index([domainId])
+  @@index([hasForm])
+  @@index([hasComments])
+}
+
+model SubmissionLog {
+  id                String   @id @default(cuid())
+  campaignId        String
+  pageId            String
+  type              SubmissionType
+  status            SubmissionStatus
+  
+  // Submission data
+  submittedData     Json?
+  responseMessage   String?  @db.Text
+  screenshotUrl     String?
+  errorMessage      String?  @db.Text
+  
+  attemptCount      Int      @default(1)
+  submittedAt       DateTime @default(now())
+  
+  // Relations
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  page              PageDiscovery @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  
+  @@index([campaignId])
+  @@index([type])
+  @@index([status])
+}
+
+model ExtractedContact {
+  id                String   @id @default(cuid())
+  campaignId        String
+  domainId          String
+  
+  email             String?
+  phone             String?
+  extractedFrom     String   // URL where it was found
+  
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  domain            Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  
+  @@index([campaignId])
+  @@index([domainId])
+  @@unique([campaignId, domainId])
+}
+
+model ProcessingQueue {
+  id                String   @id @default(cuid())
+  campaignId        String
+  domainId          String?
+  pageId            String?
+  
+  taskType          TaskType
+  priority          Int      @default(0)
+  status            QueueStatus @default(PENDING)
+  
+  payload           Json?
+  result            Json?
+  errorMessage      String?  @db.Text
+  
+  attempts          Int      @default(0)
+  maxAttempts       Int      @default(3)
+  
+  createdAt         DateTime @default(now())
+  scheduledFor      DateTime @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  
+  @@index([status, scheduledFor])
+  @@index([campaignId])
+  @@index([taskType])
+}
+
+// Enums
+enum CampaignStatus {
+  CREATED
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+  STOPPED
+}
+
+enum ProcessingMode {
+  CRON
+  MANUAL
+}
+
+enum DomainStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SubmissionType {
+  FORM
+  COMMENT
+}
+
+enum SubmissionStatus {
+  SUCCESS
+  FAILED
+  CAPTCHA_DETECTED
+  TIMEOUT
+}
+
+enum TaskType {
+  ANALYZE_DOMAIN
+  CRAWL_PAGES
+  SUBMIT_FORM
+  SUBMIT_COMMENT
+  EXTRACT_CONTACTS
+}
+
+enum QueueStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}

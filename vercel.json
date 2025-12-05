@@ -1,0 +1,24 @@
+{
+    "crons": [
+        {
+            "path": "/api/cron/process-campaigns",
+            "schedule": "*/5 * * * *"
+        }
+    ],
+    "functions": {
+        "app/api/cron/process-campaigns/route.js": {
+            "maxDuration": 300
+        },
+        "app/api/process/manual/route.js": {
+            "maxDuration": 300
+        }
+    },
+    "env": {
+        "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1"
+    },
+    "build": {
+        "env": {
+            "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1"
+        }
+    }
+}
