@@ -145,24 +145,35 @@ export async function POST(request) {
 
                                 for (const commentPageUrl of result.commentPages) {
                                     try {
+                                        sendLog(`    → Attempting: ${commentPageUrl}`)
                                         const { submitComment } = await import('@/lib/automation/comment-submitter')
                                         const commentPage = pages.find(p => p.url === commentPageUrl)
 
-                                        if (commentPage?.commentFields) {
-                                            const submitResult = await submitComment(commentPageUrl, commentPage.commentFields, {
-                                                name: config.senderName,
-                                                email: config.senderEmail,
-                                                message: config.message,
-                                            })
+                                        if (!commentPage) {
+                                            sendLog(`    ✗ Page data not found`, 'warning')
+                                            continue
+                                        }
 
-                                            if (submitResult.success) {
-                                                sendLog(`    ✓ Comment submitted: ${commentPageUrl}`, 'success')
-                                            } else {
-                                                sendLog(`    ✗ Comment failed: ${commentPageUrl} - ${submitResult.message}`, 'warning')
-                                            }
+                                        if (!commentPage.commentFields) {
+                                            sendLog(`    ✗ No comment fields on page`, 'warning')
+                                            continue
+                                        }
+
+                                        sendLog(`    → Submitting with Playwright...`)
+                                        const submitResult = await submitComment(commentPageUrl, commentPage.commentFields, {
+                                            name: config.senderName,
+                                            email: config.senderEmail,
+                                            message: config.message,
+                                        })
+
+                                        if (submitResult.success) {
+                                            sendLog(`    ✓ Comment submitted: ${commentPageUrl}`, 'success')
+                                        } else {
+                                            sendLog(`    ✗ Comment failed: ${commentPageUrl} - ${submitResult.message}`, 'warning')
                                         }
                                     } catch (error) {
-                                        sendLog(`    ✗ Comment error: ${commentPageUrl} - ${error.message}`, 'warning')
+                                        sendLog(`    ✗ Comment error: ${error.message}`, 'error')
+                                        console.error('Comment submission error:', error)
                                     }
                                 }
                             }
