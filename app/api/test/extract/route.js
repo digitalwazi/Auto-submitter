@@ -101,33 +101,18 @@ export async function POST(request) {
 
                             if (config.extractPhones && page.contacts?.phone) {
                                 if (!result.phones.includes(page.contacts.phone)) {
-                                    result.phones.push(page.contacts.phone)
                                 }
+
+                                sendLog(`\n✅ Processing completed! Processed ${domains.length} domains.`, 'success')
+                                controller.close()
+
+                            } catch (error) {
+                                const data = JSON.stringify({ log: { message: `Fatal error: ${error.message}`, type: 'error' } })
+                                controller.enqueue(encoder.encode(`data: ${data}\n\n`))
+                                controller.close()
                             }
                         }
-
-                        result.status = 'success'
-                        sendLog(`  ✅ Found: ${result.formPages.length} forms, ${result.commentPages.length} comments, ${result.emails.length} emails, ${result.phones.length} phones`, 'success')
-
-                    } catch (error) {
-                        result.status = 'failed'
-                        sendLog(`  ❌ Error: ${error.message}`, 'error')
-                    }
-
-                    sendResult(result)
-                    sendProgress(i + 1, domains.length)
-                }
-
-                sendLog(`\n✅ Processing completed! Processed ${domains.length} domains.`, 'success')
-                controller.close()
-
-            } catch (error) {
-                const data = JSON.stringify({ log: { message: `Fatal error: ${error.message}`, type: 'error' } })
-                controller.enqueue(encoder.encode(`data: ${data}\n\n`))
-                controller.close()
-            }
-        }
-    })
+                    })
 
     return new Response(stream, {
         headers: {
