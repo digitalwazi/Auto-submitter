@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import xlsx from 'xlsx'
+import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
 
