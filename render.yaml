@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: autocommenter
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: autocommenter-db
+          property: connectionString
+      - key: SUBMISSION_NAME
+        value: Your Company
+      - key: SUBMISSION_EMAIL
+        value: contact@example.com
+      - key: SUBMISSION_MESSAGE
+        value: Hi, we'd like to connect with you regarding potential collaboration.
+      - key: NODE_ENV
+        value: production
+
+databases:
+  - name: autocommenter-db
+    databaseName: autocommenter
+    user: autocommenter
+    plan: free
