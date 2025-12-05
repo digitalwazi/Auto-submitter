@@ -11,14 +11,6 @@ const nextConfig = {
       config.externals = [...(config.externals || []), 'playwright'];
     }
     return config;
-  },
-  // API route timeout configuration
-  api: {
-    responseLimit: false,
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-}
+  }
 
 module.exports = nextConfig
