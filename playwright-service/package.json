@@ -1,0 +1,28 @@
+{
+    "name": "playwright-automation-service",
+    "version": "1.0.0",
+    "description": "Playwright automation service for form and comment submissions",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "dev": "nodemon server.js"
+    },
+    "keywords": [
+        "playwright",
+        "automation",
+        "forms"
+    ],
+    "author": "99proteam",
+    "license": "MIT",
+    "dependencies": {
+        "express": "^4.18.2",
+        "playwright": "^1.40.1",
+        "body-parser": "^1.20.2"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.2"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}
