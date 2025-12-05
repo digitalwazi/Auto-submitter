@@ -101,18 +101,92 @@ export async function POST(request) {
 
                             if (config.extractPhones && page.contacts?.phone) {
                                 if (!result.phones.includes(page.contacts.phone)) {
+                                    result.phones.push(page.contacts.phone)
                                 }
-
-                                sendLog(`\n✅ Processing completed! Processed ${domains.length} domains.`, 'success')
-                                controller.close()
-
-                            } catch (error) {
-                                const data = JSON.stringify({ log: { message: `Fatal error: ${error.message}`, type: 'error' } })
-                                controller.enqueue(encoder.encode(`data: ${data}\n\n`))
-                                controller.close()
                             }
                         }
-                    })
+
+                        result.status = 'success'
+                        sendLog(`  ✅ Found: ${result.formPages.length} forms, ${result.commentPages.length} comments, ${result.emails.length} emails, ${result.phones.length} phones`, 'success')
+
+                        // Step 5: Submit if mode is 'submit'
+                        if (config.mode === 'submit') {
+                            // Submit to forms
+                            if (config.submitForms && result.formPages.length > 0) {
+                                sendLog(`  ↳ Submitting to ${result.formPages.length} forms...`)
+
+                                for (const formPageUrl of result.formPages) {
+                                    try {
+                                        const { submitForm } = await import('@/lib/automation/form-submitter')
+                                        const formPage = pages.find(p => p.url === formPageUrl)
+
+                                        if (formPage?.formFields) {
+                                            const submitResult = await submitForm(formPageUrl, formPage.formFields, {
+                                                name: config.senderName,
+                                                email: config.senderEmail,
+                                                message: config.message,
+                                            })
+
+                                            if (submitResult.success) {
+                                                sendLog(`    ✓ Form submitted: ${formPageUrl}`, 'success')
+                                            } else {
+                                                sendLog(`    ✗ Form failed: ${formPageUrl} - ${submitResult.message}`, 'warning')
+                                            }
+                                        }
+                                    } catch (error) {
+                                        sendLog(`    ✗ Form error: ${formPageUrl} - ${error.message}`, 'warning')
+                                    }
+                                }
+                            }
+
+                            // Submit to comments
+                            if (config.submitComments && result.commentPages.length > 0) {
+                                sendLog(`  ↳ Submitting to ${result.commentPages.length} comments...`)
+
+                                for (const commentPageUrl of result.commentPages) {
+                                    try {
+                                        const { submitComment } = await import('@/lib/automation/comment-submitter')
+                                        const commentPage = pages.find(p => p.url === commentPageUrl)
+
+                                        if (commentPage?.commentFields) {
+                                            const submitResult = await submitComment(commentPageUrl, commentPage.commentFields, {
+                                                name: config.senderName,
+                                                email: config.senderEmail,
+                                                message: config.message,
+                                            })
+
+                                            if (submitResult.success) {
+                                                sendLog(`    ✓ Comment submitted: ${commentPageUrl}`, 'success')
+                                            } else {
+                                                sendLog(`    ✗ Comment failed: ${commentPageUrl} - ${submitResult.message}`, 'warning')
+                                            }
+                                        }
+                                    } catch (error) {
+                                        sendLog(`    ✗ Comment error: ${commentPageUrl} - ${error.message}`, 'warning')
+                                    }
+                                }
+                            }
+                        }
+
+                    } catch (error) {
+                        result.status = 'failed'
+                        sendLog(`  ❌ Error: ${error.message}`, 'error')
+                    }
+
+                    sendResult(result)
+                    sendProgress(i + 1, domains.length)
+                }
+
+                sendLog(`\n✅ Processing completed! Processed ${domains.length} domains.`, 'success')
+                controller.close()
+
+            } catch (error) {
+                const data = JSON.stringify({ log: { message: `Fatal error: ${error.message}`, type: 'error' } })
+                controller.enqueue(encoder.encode(`data: ${data}\n\n`))
+                controller.close()
+            }
+        }
+    })
 
     return new Response(stream, {
         headers: {
