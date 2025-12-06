@@ -206,6 +206,33 @@ export default function EnhancedTestPage() {
                     </div>
                 </div>
 
+                {/* Mode Selection */}
+                <div className="card mb-6">
+                    <h2 className="text-xl font-bold mb-4">🎯 Mode</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        <button
+                            onClick={() => setConfig({ ...config, mode: 'extract' })}
+                            className={`px-6 py-4 rounded-lg font-semibold text-left ${config.mode === 'extract'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                }`}
+                        >
+                            <div className="text-lg mb-1">📊 Extract Only</div>
+                            <div className="text-sm opacity-80">Find forms, comments, contacts (Fast)</div>
+                        </button>
+                        <button
+                            onClick={() => setConfig({ ...config, mode: 'submit' })}
+                            className={`px-6 py-4 rounded-lg font-semibold text-left ${config.mode === 'submit'
+                                    ? 'bg-purple-600 text-white'
+                                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                }`}
+                        >
+                            <div className="text-lg mb-1">🚀 Extract + Submit</div>
+                            <div className="text-sm opacity-80">Find and automatically submit with Playwright</div>
+                        </button>
+                    </div>
+                </div>
+
                 {/* File Upload */}
                 <div className="card mb-6">
                     <h2 className="text-xl font-bold mb-4">📁 Upload Domains</h2>
@@ -478,9 +505,9 @@ export default function EnhancedTestPage() {
                         ) : (
                             logs.map((log, idx) => (
                                 <div key={idx} className={`mb-1 ${log.type === 'error' ? 'text-red-400' :
-                                        log.type === 'success' ? 'text-green-400' :
-                                            log.type === 'warning' ? 'text-yellow-400' :
-                                                'text-gray-300'
+                                    log.type === 'success' ? 'text-green-400' :
+                                        log.type === 'warning' ? 'text-yellow-400' :
+                                            'text-gray-300'
                                     }`}>
                                     <span className="text-gray-500">[{log.timestamp}]</span> {log.message}
                                 </div>
