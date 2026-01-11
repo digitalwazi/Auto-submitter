@@ -129,13 +129,13 @@ export default function CampaignDetailsPage() {
 
                 {/* Tabs */}
                 <div className="mb-6 flex gap-4 border-b border-gray-800">
-                    {['overview', 'domains', 'pages', 'contacts', 'submissions'].map(tab => (
+                    {['overview', 'domains', 'pages', 'contacts', 'submissions', 'logs'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`pb-3 px-2 capitalize transition-colors ${activeTab === tab
-                                    ? 'text-indigo-400 border-b-2 border-indigo-400'
-                                    : 'text-gray-500 hover:text-gray-300'
+                                ? 'text-indigo-400 border-b-2 border-indigo-400'
+                                : 'text-gray-500 hover:text-gray-300'
                                 }`}
                         >
                             {tab}
@@ -192,9 +192,9 @@ export default function CampaignDetailsPage() {
                                             </p>
                                         </div>
                                         <span className={`text-sm px-3 py-1 rounded-full ${domain.status === 'COMPLETED' ? 'bg-green-900/30 text-green-400' :
-                                                domain.status === 'PROCESSING' ? 'bg-blue-900/30 text-blue-400' :
-                                                    domain.status === 'FAILED' ? 'bg-red-900/30 text-red-400' :
-                                                        'bg-gray-700 text-gray-400'
+                                            domain.status === 'PROCESSING' ? 'bg-blue-900/30 text-blue-400' :
+                                                domain.status === 'FAILED' ? 'bg-red-900/30 text-red-400' :
+                                                    'bg-gray-700 text-gray-400'
                                             }`}>
                                             {domain.status}
                                         </span>
@@ -264,8 +264,8 @@ export default function CampaignDetailsPage() {
                                                     </a>
                                                 </div>
                                                 <span className={`text-xs px-2 py-1 rounded ${submission.status === 'SUCCESS' ? 'bg-green-900/30 text-green-400' :
-                                                        submission.status === 'CAPTCHA_DETECTED' ? 'bg-yellow-900/30 text-yellow-400' :
-                                                            'bg-red-900/30 text-red-400'
+                                                    submission.status === 'CAPTCHA_DETECTED' ? 'bg-yellow-900/30 text-yellow-400' :
+                                                        'bg-red-900/30 text-red-400'
                                                     }`}>
                                                     {submission.status}
                                                 </span>
@@ -276,6 +276,52 @@ export default function CampaignDetailsPage() {
                                         </div>
                                     )
                                 }) || <p className="text-gray-500 text-center py-8">No submissions yet</p>}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'logs' && (
+                        <div className="card">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold">Activity Logs</h3>
+                                <button onClick={fetchCampaign} className="text-sm text-indigo-400 hover:text-indigo-300">
+                                    Refresh Logs
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {campaign.activityLogs?.map(log => (
+                                    <div key={log.id} className="p-3 bg-gray-900/50 rounded-lg text-sm font-mono border-l-4 border-gray-700 hover:bg-gray-800 transition-colors"
+                                        style={{
+                                            borderLeftColor: log.status === 'COMPLETED' ? '#4ade80' :
+                                                log.status === 'FAILED' ? '#f87171' :
+                                                    log.status === 'PROCESSING' ? '#60a5fa' : '#374151'
+                                        }}>
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className="font-bold text-gray-300">{log.taskType}</span>
+                                            <span className="text-xs text-gray-500">{new Date(log.createdAt).toLocaleTimeString()}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className={`px-1.5 py-0.5 rounded ${log.status === 'COMPLETED' ? 'bg-green-900/30 text-green-400' :
+                                                    log.status === 'FAILED' ? 'bg-red-900/30 text-red-400' :
+                                                        log.status === 'PROCESSING' ? 'bg-blue-900/30 text-blue-400' :
+                                                            'bg-gray-700 text-gray-400'
+                                                }`}>
+                                                {log.status}
+                                            </span>
+                                            {log.attempts > 0 && <span className="text-gray-600">Attempt: {log.attempts}</span>}
+                                        </div>
+                                        {log.errorMessage && (
+                                            <div className="mt-2 text-red-400 bg-red-900/10 p-2 rounded break-all">
+                                                {log.errorMessage}
+                                            </div>
+                                        )}
+                                        {log.result && (
+                                            <div className="mt-2 text-gray-400 break-all opacity-75">
+                                                {log.result.substring(0, 150)}{log.result.length > 150 ? '...' : ''}
+                                            </div>
+                                        )}
+                                    </div>
+                                )) || <p className="text-gray-500 text-center py-8">No activity logs found</p>}
                             </div>
                         </div>
                     )}

@@ -9,13 +9,102 @@ export const maxDuration = 300
 export async function POST(request) {
     const encoder = new TextEncoder()
 
+    // Check if it's a background run request
+    // We need to clone the request because we might need to read the body twice 
+    // (though here we just read form data once)
+    const formData = await request.formData()
+    const file = formData.get('file')
+    const configStr = formData.get('config')
+    const config = JSON.parse(configStr)
+
+    // Read domains from file
+    const content = await file.text()
+    const domains = content.split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(domain => {
+            if (!domain.startsWith('http')) return `https://${domain}`
+            return domain
+        })
+
+    // === BACKGROUND MODE ===
+    if (config.runInBackground) {
+        try {
+            // Import prisma dynamically to avoid issues if not used
+            const { default: prisma } = await import('@/lib/db')
+
+            // 1. Create Campaign
+            const campaign = await prisma.campaign.create({
+                data: {
+                    name: `Background Test - ${new Date().toLocaleString()}`,
+                    status: 'RUNNING',
+                    processingMode: 'BACKGROUND',
+                    maxPagesPerDomain: config.maxPages || 20,
+                    submitForms: config.submitForms || false,
+                    submitComments: config.submitComments || false,
+                    messageTemplate: config.message || config.messageTemplate || '',
+                    senderName: config.senderName || '',
+                    senderEmail: config.senderEmail || '',
+                    config: JSON.stringify(config),
+                    totalDomains: domains.length,
+                }
+            })
+
+            // 2. Create Domains & Queue Tasks
+            // We do this in batches to avoid locking the DB with massive inserts
+            const batchSize = 50
+            let processed = 0
+
+            for (let i = 0; i < domains.length; i += batchSize) {
+                const batch = domains.slice(i, i + batchSize)
+
+                await prisma.$transaction(async (tx) => {
+                    for (const url of batch) {
+                        // Create Domain
+                        const domain = await tx.domain.create({
+                            data: {
+                                campaignId: campaign.id,
+                                url: url,
+                                status: 'PENDING',
+                            }
+                        })
+
+                        // Add to Queue (Analyze Task)
+                        await tx.processingQueue.create({
+                            data: {
+                                campaignId: campaign.id,
+                                domainId: domain.id,
+                                taskType: 'ANALYZE_DOMAIN',
+                                priority: 10, // High priority for initial analysis
+                                scheduledFor: new Date(),
+                            }
+                        })
+                    }
+                })
+
+                processed += batch.length
+            }
+
+            return NextResponse.json({
+                success: true,
+                message: `Campaign started! ${domains.length} domains queued in background.`,
+                campaignId: campaign.id,
+                totalDomains: domains.length
+            })
+
+        } catch (error) {
+            console.error('Background Enqueue Error:', error)
+            return NextResponse.json(
+                { success: false, error: error.message },
+                { status: 500 }
+            )
+        }
+    }
+
+    // === FOREGROUND STREAMING MODE (Existing Logic) ===
     const stream = new ReadableStream({
         async start(controller) {
             try {
-                const formData = await request.formData()
-                const file = formData.get('file')
-                const config = JSON.parse(formData.get('config'))
-
                 const sendLog = (message, type = 'info') => {
                     const data = JSON.stringify({ log: { message, type } })
                     controller.enqueue(encoder.encode(`data: ${data}\n\n`))
@@ -30,16 +119,6 @@ export async function POST(request) {
                     const data = JSON.stringify({ result })
                     controller.enqueue(encoder.encode(`data: ${data}\n\n`))
                 }
-
-                // Read domains from file
-                const content = await file.text()
-                const domains = content.split('\n')
-                    .map(line => line.trim())
-                    .filter(Boolean)
-                    .map(domain => {
-                        if (!domain.startsWith('http')) return `https://${domain}`
-                        return domain
-                    })
 
                 sendLog(`📁 Loaded ${domains.length} domains from file`)
                 sendProgress(0, domains.length)
@@ -73,6 +152,58 @@ export async function POST(request) {
                             // Step 1: Analyze domain
                             sendLog(`${domainLabel} ↳ Analyzing...`)
                             const analysis = await analyzeDomain(domainUrl)
+
+                            // Step 1.5: Extract from HOMEPAGE FIRST
+                            sendLog(`${domainLabel} ↳ Extracting from homepage...`)
+                            try {
+                                const homepageResponse = await fetch(domainUrl, {
+                                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+                                    signal: AbortSignal.timeout(15000),
+                                })
+                                if (homepageResponse.ok) {
+                                    const html = await homepageResponse.text()
+
+                                    // Extract emails from homepage
+                                    const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g
+                                    const emailMatches = html.match(emailRegex) || []
+                                    emailMatches.forEach(email => {
+                                        const lower = email.toLowerCase()
+                                        if (!lower.includes('example.com') && !lower.includes('test@') &&
+                                            !lower.includes('noreply') && !result.emails.includes(email)) {
+                                            result.emails.push(email)
+                                        }
+                                    })
+
+                                    // Extract from mailto: links
+                                    const mailtoRegex = /href=["']mailto:([^"'?]+)/g
+                                    let match
+                                    while ((match = mailtoRegex.exec(html)) !== null) {
+                                        if (!result.emails.includes(match[1])) result.emails.push(match[1])
+                                    }
+
+                                    // Extract phones from homepage
+                                    const phoneRegex = /\+?[\d\s\-().]{10,20}/g
+                                    const phoneMatches = html.match(phoneRegex) || []
+                                    phoneMatches.forEach(phone => {
+                                        const cleaned = phone.replace(/[\s\-().]/g, '')
+                                        if (cleaned.length >= 10 && cleaned.length <= 15 && !result.phones.includes(phone.trim())) {
+                                            result.phones.push(phone.trim())
+                                        }
+                                    })
+
+                                    // Extract from tel: links
+                                    const telRegex = /href=["']tel:([^"']+)/g
+                                    while ((match = telRegex.exec(html)) !== null) {
+                                        if (!result.phones.includes(match[1])) result.phones.push(match[1])
+                                    }
+
+                                    if (result.emails.length > 0 || result.phones.length > 0) {
+                                        sendLog(`${domainLabel} ✓ Homepage: ${result.emails.length} emails, ${result.phones.length} phones`)
+                                    }
+                                }
+                            } catch (e) {
+                                sendLog(`${domainLabel} ⚠ Homepage extraction failed: ${e.message}`)
+                            }
 
                             // Step 2: Detect technology
                             if (config.detectTechnology) {

@@ -4,7 +4,8 @@ import prisma from '@/lib/db'
 export const dynamic = 'force-dynamic'
 
 // Get campaign details
-export async function GET(request, { params }) {
+export async function GET(request, props) {
+    const params = await props.params;
     try {
         const { id } = params
 
@@ -31,7 +32,19 @@ export async function GET(request, { params }) {
             return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
         }
 
-        return NextResponse.json({ campaign })
+        // Fetch activity logs (ProcessingQueue)
+        const activityLogs = await prisma.processingQueue.findMany({
+            where: { campaignId: id },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+        })
+
+        return NextResponse.json({
+            campaign: {
+                ...campaign,
+                activityLogs
+            }
+        })
 
     } catch (error) {
         console.error('Error fetching campaign:', error)
@@ -40,7 +53,8 @@ export async function GET(request, { params }) {
 }
 
 // Update campaign
-export async function PATCH(request, { params }) {
+export async function PATCH(request, props) {
+    const params = await props.params;
     try {
         const { id } = params
         const body = await request.json()
@@ -74,7 +88,8 @@ export async function PATCH(request, { params }) {
 }
 
 // Delete campaign
-export async function DELETE(request, { params }) {
+export async function DELETE(request, props) {
+    const params = await props.params;
     try {
         const { id } = params
 

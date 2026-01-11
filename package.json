@@ -2,7 +2,6 @@
   "name": "auto-submitter",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "npx prisma generate && next build",
@@ -14,19 +13,24 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@vercel/blob": "^2.0.0",
+    "autoprefixer": "^10.4.22",
     "cheerio": "^1.0.0",
     "exceljs": "^4.4.0",
-    "next": "15.0.5",
+    "next": "^16.0.0",
     "playwright": "^1.49.1",
-    "react": "^18",
-    "react-dom": "^18"
+    "react": "^19",
+    "react-dom": "^19",
+    "robots-parser": "^3.0.1",
+    "xlsx": "^0.18.5",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "eslint": "^8",
-    "eslint-config-next": "15.0.5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "^16.0.0",
     "postcss": "^8",
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.1"

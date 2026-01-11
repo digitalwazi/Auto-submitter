@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function EnhancedTestPage() {
     const [file, setFile] = useState(null)
@@ -9,6 +10,7 @@ export default function EnhancedTestPage() {
     const [results, setResults] = useState([])
     const [progress, setProgress] = useState({ current: 0, total: 0 })
     const [showAdvanced, setShowAdvanced] = useState(false)
+    const [screenshotPaths, setScreenshotPaths] = useState([])
     const [config, setConfig] = useState({
         mode: 'extract',
         maxPages: 20,
@@ -36,12 +38,39 @@ export default function EnhancedTestPage() {
         senderName: 'Test User',
         senderEmail: 'test@example.com',
         message: 'Hi, great site!',
+
+        // === NEW FEATURES ===
+        // Screenshots
+        enableScreenshots: false,
+
+        // Message Templates
+        messageTemplate: 'custom',  // 'custom', 'professional', 'quick', 'business', 'feedback', 'newsletter'
+        useSpinTax: false,
+
+        // Human Behavior
+        behaviorMode: 'normal',  // 'fast', 'normal', 'careful', 'aggressive'
+
+        // Duplicate Detection
+        skipDuplicates: true,
+        duplicateWindowDays: 30,
+
+        // Form Priority
+        enableFormPriority: true,
+        minFormScore: 30,
+
+        // Fingerprint
+        randomizeFingerprint: true,
+
+        // Background Mode
+        runInBackground: false,
     })
 
     const addLog = (message, type = 'info') => {
         const timestamp = new Date().toLocaleTimeString()
         setLogs(prev => [...prev, { timestamp, message, type }])
     }
+
+    const router = useRouter() // Add this
 
     const handleStart = async () => {
         if (!file) {
@@ -53,6 +82,7 @@ export default function EnhancedTestPage() {
         setLogs([])
         setResults([])
         setProgress({ current: 0, total: 0 })
+        setScreenshotPaths([])
 
         try {
             addLog('🚀 Starting domain processing...', 'success')
@@ -68,6 +98,24 @@ export default function EnhancedTestPage() {
 
             if (!response.ok) throw new Error('Server error')
 
+            // Handle Background Mode
+            if (config.runInBackground) {
+                const data = await response.json()
+                if (data.success) {
+                    addLog(`✅ ${data.message}`, 'success')
+                    addLog('🔄 Redirecting to campaign dashboard...', 'info')
+
+                    // Small delay to let user see the success message
+                    setTimeout(() => {
+                        router.push(`/campaigns/${data.campaignId}`)
+                    }, 1500)
+                } else {
+                    addLog(`❌ Error: ${data.error}`, 'error')
+                }
+                return // Exit early
+            }
+
+            // Handle Stream
             const reader = response.body.getReader()
             const decoder = new TextDecoder()
 
@@ -92,6 +140,16 @@ export default function EnhancedTestPage() {
 
                         if (data.result) {
                             setResults(prev => [...prev, data.result])
+                            // Track screenshot paths
+                            if (data.result.screenshots) {
+                                const paths = []
+                                if (data.result.screenshots.before?.path) paths.push(data.result.screenshots.before.path)
+                                if (data.result.screenshots.after?.path) paths.push(data.result.screenshots.after.path)
+                                if (paths.length > 0) {
+                                    setScreenshotPaths(prev => [...prev, ...paths])
+                                    addLog(`📸 Screenshots saved: ${paths.join(', ')}`, 'success')
+                                }
+                            }
                         }
                     }
                 }
@@ -111,15 +169,15 @@ export default function EnhancedTestPage() {
             return
         }
 
-        const headers = ['Domain', 'Status', 'Technology', 'Forms', 'Comments', 'Emails', 'Phones', 'Pages']
+        const headers = ['Domain', 'Status', 'Technology', 'Forms Count', 'Comments Count', 'Emails', 'Phones', 'Pages']
         const rows = results.map(r => [
             r.domain,
             r.status,
             r.technology || 'Unknown',
             r.formPages?.length || 0,
             r.commentPages?.length || 0,
-            r.emails?.length || 0,
-            r.phones?.length || 0,
+            (r.emails || []).join('; '),  // Actual emails separated by semicolon
+            (r.phones || []).join('; '),  // Actual phones separated by semicolon
             r.totalPages || 0,
         ])
 
@@ -213,8 +271,8 @@ export default function EnhancedTestPage() {
                         <button
                             onClick={() => setConfig({ ...config, mode: 'extract' })}
                             className={`px-6 py-4 rounded-lg font-semibold text-left ${config.mode === 'extract'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                                 }`}
                         >
                             <div className="text-lg mb-1">📊 Extract Only</div>
@@ -223,8 +281,8 @@ export default function EnhancedTestPage() {
                         <button
                             onClick={() => setConfig({ ...config, mode: 'submit' })}
                             className={`px-6 py-4 rounded-lg font-semibold text-left ${config.mode === 'submit'
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                                 }`}
                         >
                             <div className="text-lg mb-1">🚀 Extract + Submit</div>
@@ -362,8 +420,8 @@ export default function EnhancedTestPage() {
                                             <input
                                                 type="number"
                                                 min="0"
-                                                value={config.targetFormsCount}
-                                                onChange={(e) => setConfig({ ...config, targetFormsCount: parseInt(e.target.value) })}
+                                                value={config.targetFormsCount || 0}
+                                                onChange={(e) => setConfig({ ...config, targetFormsCount: parseInt(e.target.value) || 0 })}
                                                 className="input w-full text-sm"
                                             />
                                         </div>
@@ -372,8 +430,8 @@ export default function EnhancedTestPage() {
                                             <input
                                                 type="number"
                                                 min="0"
-                                                value={config.targetCommentsCount}
-                                                onChange={(e) => setConfig({ ...config, targetCommentsCount: parseInt(e.target.value) })}
+                                                value={config.targetCommentsCount || 0}
+                                                onChange={(e) => setConfig({ ...config, targetCommentsCount: parseInt(e.target.value) || 0 })}
                                                 className="input w-full text-sm"
                                             />
                                         </div>
@@ -412,7 +470,162 @@ export default function EnhancedTestPage() {
                     )}
                 </div>
 
-                {/* Submission Settings */}
+                {/* === NEW FEATURES PANEL === */}
+                <div className="card mb-6 border-2 border-purple-500/30">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span className="text-purple-400">✨</span> Smart Features
+                        <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">NEW</span>
+                    </h2>
+
+                    <div className="grid grid-cols-3 gap-6">
+                        {/* Column 1: Screenshots & Fingerprint */}
+                        <div className="space-y-3">
+                            <h3 className="font-semibold text-sm text-gray-400 mb-2">🔒 Anti-Detection</h3>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={config.randomizeFingerprint}
+                                    onChange={(e) => setConfig({ ...config, randomizeFingerprint: e.target.checked })}
+                                    className="w-4 h-4"
+                                />
+                                <span className="text-sm">🎭 Randomize Browser Fingerprint</span>
+                            </label>
+                            <p className="text-xs text-gray-500 ml-6">Random viewport, timezone, WebGL</p>
+
+                            <div className="mt-4">
+                                <label className="text-xs text-gray-400">🤖 Behavior Mode</label>
+                                <select
+                                    value={config.behaviorMode}
+                                    onChange={(e) => setConfig({ ...config, behaviorMode: e.target.value })}
+                                    className="input w-full text-sm mt-1"
+                                >
+                                    <option value="aggressive">⚡ Aggressive (Fast)</option>
+                                    <option value="fast">🏃 Fast (Less delays)</option>
+                                    <option value="normal">⚖️ Normal (Balanced)</option>
+                                    <option value="careful">🐢 Careful (Maximum stealth)</option>
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">Human-like mouse movement & typing</p>
+                            </div>
+                        </div>
+
+                        {/* Column 2: Screenshots & Duplicates */}
+                        <div className="space-y-3">
+                            <h3 className="font-semibold text-sm text-gray-400 mb-2">📸 Capture & Detection</h3>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={config.enableScreenshots}
+                                    onChange={(e) => setConfig({ ...config, enableScreenshots: e.target.checked })}
+                                    className="w-4 h-4"
+                                />
+                                <span className="text-sm">📷 Capture Screenshots</span>
+                            </label>
+                            <p className="text-xs text-gray-500 ml-6">Before/after form submission</p>
+                            {config.enableScreenshots && (
+                                <div className="ml-6 text-xs bg-gray-800 p-2 rounded">
+                                    📁 Saved to: <code className="text-green-400">./screenshots/</code>
+                                </div>
+                            )}
+
+                            <div className="border-t border-gray-700 pt-3 mt-3">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={config.skipDuplicates}
+                                        onChange={(e) => setConfig({ ...config, skipDuplicates: e.target.checked })}
+                                        className="w-4 h-4"
+                                    />
+                                    <span className="text-sm">🔄 Skip Duplicates</span>
+                                </label>
+                                <p className="text-xs text-gray-500 ml-6">Skip previously submitted domains</p>
+                            </div>
+
+                            {config.skipDuplicates && (
+                                <div className="ml-6">
+                                    <label className="text-xs text-gray-400">Window (days)</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="365"
+                                        value={config.duplicateWindowDays}
+                                        onChange={(e) => setConfig({ ...config, duplicateWindowDays: parseInt(e.target.value) || 30 })}
+                                        className="input w-full text-sm"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Column 3: Form Priority & Templates */}
+                        <div className="space-y-3">
+                            <h3 className="font-semibold text-sm text-gray-400 mb-2">🎯 Smart Submission</h3>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={config.enableFormPriority}
+                                    onChange={(e) => setConfig({ ...config, enableFormPriority: e.target.checked })}
+                                    className="w-4 h-4"
+                                />
+                                <span className="text-sm">⭐ Smart Form Priority</span>
+                            </label>
+                            <p className="text-xs text-gray-500 ml-6">Skip low-quality forms</p>
+
+                            {config.enableFormPriority && (
+                                <div className="ml-6">
+                                    <label className="text-xs text-gray-400">Min Score (0-100)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={config.minFormScore}
+                                        onChange={(e) => setConfig({ ...config, minFormScore: parseInt(e.target.value) || 30 })}
+                                        className="input w-full text-sm"
+                                    />
+                                </div>
+                            )}
+
+                            <div className="border-t border-gray-700 pt-3 mt-3">
+                                <label className="text-xs text-gray-400">📝 Message Template</label>
+                                <select
+                                    value={config.messageTemplate}
+                                    onChange={(e) => setConfig({ ...config, messageTemplate: e.target.value })}
+                                    className="input w-full text-sm mt-1"
+                                >
+                                    <option value="custom">✏️ Custom (use message below)</option>
+                                    <option value="professional">💼 Professional Inquiry</option>
+                                    <option value="quick">⚡ Quick Contact</option>
+                                    <option value="business">🤝 Business Proposal</option>
+                                    <option value="feedback">📋 Feedback Request</option>
+                                    <option value="newsletter">📰 Newsletter Subscribe</option>
+                                </select>
+
+                                <label className="flex items-center gap-2 cursor-pointer mt-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={config.useSpinTax}
+                                        onChange={(e) => setConfig({ ...config, useSpinTax: e.target.checked })}
+                                        className="w-4 h-4"
+                                    />
+                                    <span className="text-sm">🎲 Enable SpinTax</span>
+                                </label>
+                                <p className="text-xs text-gray-500 ml-6">{`Use {Hi|Hello} for variations`}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Screenshot Path Display */}
+                    {screenshotPaths.length > 0 && (
+                        <div className="mt-4 p-3 bg-green-900/20 rounded-lg border border-green-500/30">
+                            <h4 className="text-sm font-bold text-green-400 mb-2">📸 Captured Screenshots ({screenshotPaths.length})</h4>
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                                {screenshotPaths.map((path, i) => (
+                                    <div key={i} className="text-xs text-gray-300 font-mono bg-black/30 px-2 py-1 rounded">
+                                        {path}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
                 {config.mode === 'submit' && (
                     <div className="card mb-6">
                         <h2 className="text-xl font-bold mb-4">🚀 Auto-Submit Settings</h2>
@@ -461,18 +674,34 @@ export default function EnhancedTestPage() {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex gap-4 mb-6">
+                <div className="flex gap-4 mb-6 items-center">
                     <button
                         onClick={handleStart}
                         disabled={!file || running}
-                        className="btn-primary flex-1"
+                        className="btn-primary flex-1 py-4 text-lg"
                     >
                         {running ? '⏳ Processing...' : '🚀 Start Processing'}
                     </button>
+
+                    <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                        <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
+                            <input
+                                type="checkbox"
+                                checked={config.runInBackground}
+                                onChange={(e) => setConfig({ ...config, runInBackground: e.target.checked })}
+                                className="w-5 h-5 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                            />
+                            <div>
+                                <div className="font-bold text-sm">Run in Background (VPS)</div>
+                                <div className="text-xs text-gray-400">Continues if closed</div>
+                            </div>
+                        </label>
+                    </div>
+
                     <button
                         onClick={handleExport}
                         disabled={results.length === 0}
-                        className="btn-secondary"
+                        className="btn-secondary py-4"
                     >
                         📥 Export CSV
                     </button>
@@ -544,8 +773,22 @@ export default function EnhancedTestPage() {
                                             </td>
                                             <td className="p-2 text-center">{result.formPages?.length || 0}</td>
                                             <td className="p-2 text-center">{result.commentPages?.length || 0}</td>
-                                            <td className="p-2 text-center">{result.emails?.length || 0}</td>
-                                            <td className="p-2 text-center">{result.phones?.length || 0}</td>
+                                            <td className="p-2 text-center" title={(result.emails || []).join('\n')}>
+                                                <span className="cursor-help underline decoration-dotted">
+                                                    {result.emails?.length || 0}
+                                                </span>
+                                                {result.emails?.length > 0 && (
+                                                    <div className="text-xs text-green-400 mt-1">{result.emails[0]}</div>
+                                                )}
+                                            </td>
+                                            <td className="p-2 text-center" title={(result.phones || []).join('\n')}>
+                                                <span className="cursor-help underline decoration-dotted">
+                                                    {result.phones?.length || 0}
+                                                </span>
+                                                {result.phones?.length > 0 && (
+                                                    <div className="text-xs text-green-400 mt-1">{result.phones[0]}</div>
+                                                )}
+                                            </td>
                                             <td className="p-2 text-center">{result.totalPages || 0}</td>
                                         </tr>
                                     ))}

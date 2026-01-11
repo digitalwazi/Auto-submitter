@@ -5,15 +5,15 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model Campaign {
   id                String   @id @default(cuid())
   name              String
-  status            CampaignStatus @default(CREATED)
-  processingMode    ProcessingMode @default(MANUAL)
+  status            String   @default("CREATED")
+  processingMode    String   @default("MANUAL")
   
   // Settings
   maxPagesPerDomain Int      @default(50)
@@ -22,6 +22,7 @@ model Campaign {
   messageTemplate   String   @default("")
   senderName        String   @default("")
   senderEmail       String   @default("")
+  config            String?  // JSON string for advanced crawler/submitter options
   
   // Stats
   totalDomains      Int      @default(0)
@@ -40,26 +41,25 @@ model Campaign {
   pages             PageDiscovery[]
   submissions       SubmissionLog[]
   contacts          ExtractedContact[]
-  
-  @@index([status])
-  @@index([processingMode])
+  processingQueue   ProcessingQueue[]
 }
 
 model Domain {
   id                String   @id @default(cuid())
   campaignId        String
   url               String
-  status            DomainStatus @default(PENDING)
+  status            String   @default("PENDING")
   
   // Discovery results
   hasRobotsTxt      Boolean  @default(false)
-  robotsTxtContent  String?  @db.Text
+  robotsTxtContent  String?
   sitemapsFound     Int      @default(0)
   pagesDiscovered   Int      @default(0)
+  technology        String?
   
   // Processing
   processedAt       DateTime?
-  errorMessage      String?  @db.Text
+  errorMessage      String?
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -69,8 +69,6 @@ model Domain {
   pages             PageDiscovery[]
   contacts          ExtractedContact[]
   
-  @@index([campaignId])
-  @@index([status])
   @@unique([campaignId, url])
 }
 
@@ -86,13 +84,13 @@ model PageDiscovery {
   hasComments       Boolean  @default(false)
   
   // Form details
-  formFields        Json?    // Array of field objects
+  formFields        String?
   formAction        String?
   formMethod        String?
   
   // Comment details
-  commentType       String?  // wordpress, disqus, custom, etc.
-  commentFields     Json?
+  commentType       String?
+  commentFields     String?
   
   discoveredAt      DateTime @default(now())
   
@@ -100,25 +98,20 @@ model PageDiscovery {
   campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   domain            Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
   submissions       SubmissionLog[]
-  
-  @@index([campaignId])
-  @@index([domainId])
-  @@index([hasForm])
-  @@index([hasComments])
 }
 
 model SubmissionLog {
   id                String   @id @default(cuid())
   campaignId        String
   pageId            String
-  type              SubmissionType
-  status            SubmissionStatus
+  type              String
+  status            String
   
   // Submission data
-  submittedData     Json?
-  responseMessage   String?  @db.Text
+  submittedData     String?
+  responseMessage   String?
   screenshotUrl     String?
-  errorMessage      String?  @db.Text
+  errorMessage      String?
   
   attemptCount      Int      @default(1)
   submittedAt       DateTime @default(now())
@@ -126,10 +119,6 @@ model SubmissionLog {
   // Relations
   campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   page              PageDiscovery @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  
-  @@index([campaignId])
-  @@index([type])
-  @@index([status])
 }
 
 model ExtractedContact {
@@ -139,7 +128,7 @@ model ExtractedContact {
   
   email             String?
   phone             String?
-  extractedFrom     String   // URL where it was found
+  extractedFrom     String
   
   createdAt         DateTime @default(now())
   
@@ -147,8 +136,6 @@ model ExtractedContact {
   campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   domain            Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
   
-  @@index([campaignId])
-  @@index([domainId])
   @@unique([campaignId, domainId])
 }
 
@@ -158,13 +145,13 @@ model ProcessingQueue {
   domainId          String?
   pageId            String?
   
-  taskType          TaskType
+  taskType          String
   priority          Int      @default(0)
-  status            QueueStatus @default(PENDING)
+  status            String   @default("PENDING")
   
-  payload           Json?
-  result            Json?
-  errorMessage      String?  @db.Text
+  payload           String?
+  result            String?
+  errorMessage      String?
   
   attempts          Int      @default(0)
   maxAttempts       Int      @default(3)
@@ -174,57 +161,5 @@ model ProcessingQueue {
   startedAt         DateTime?
   completedAt       DateTime?
   
-  @@index([status, scheduledFor])
-  @@index([campaignId])
-  @@index([taskType])
-}
-
-// Enums
-enum CampaignStatus {
-  CREATED
-  RUNNING
-  PAUSED
-  COMPLETED
-  FAILED
-  STOPPED
-}
-
-enum ProcessingMode {
-  CRON
-  MANUAL
-}
-
-enum DomainStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-}
-
-enum SubmissionType {
-  FORM
-  COMMENT
-}
-
-enum SubmissionStatus {
-  SUCCESS
-  FAILED
-  CAPTCHA_DETECTED
-  TIMEOUT
-}
-
-enum TaskType {
-  ANALYZE_DOMAIN
-  CRAWL_PAGES
-  SUBMIT_FORM
-  SUBMIT_COMMENT
-  EXTRACT_CONTACTS
-}
-
-enum QueueStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-  CANCELLED
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 }

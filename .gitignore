@@ -43,3 +43,19 @@ playwright/.cache/
 *.swp
 *.swo
 *~
+
+# Large files - exclude from git
+screenshots/
+prisma/dev.db
+*.log
+dev.log
+
+# Debug scripts
+debug-*.js
+check-*.js
+reset-*.js
+cleanup-*.js
+verify-*.js
+
+# Submission history
+.submission-history.json

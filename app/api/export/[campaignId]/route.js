@@ -4,7 +4,8 @@ import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request, { params }) {
+export async function GET(request, props) {
+    const params = await props.params;
     try {
         const { campaignId } = params
 
@@ -31,7 +32,7 @@ export async function GET(request, { params }) {
         }
 
         // Create workbook
-        const wb = xlsx.utils.book_new()
+        const wb = XLSX.utils.book_new()
 
         // Summary sheet
         const summary = [
@@ -47,18 +48,19 @@ export async function GET(request, { params }) {
             ['Created At', campaign.createdAt.toISOString()],
             [],
         ]
-        const ws_summary = xlsx.utils.aoa_to_sheet(summary)
-        xlsx.utils.book_append_sheet(wb, ws_summary, 'Summary')
+        const ws_summary = XLSX.utils.aoa_to_sheet(summary)
+        XLSX.utils.book_append_sheet(wb, ws_summary, 'Summary')
 
         // Domains sheet
         const domainsData = [
-            ['URL', 'Status', 'Has Robots.txt', 'Sitemaps Found', 'Pages Discovered', 'Processed At'],
+            ['URL', 'Status', 'Technology', 'Has Robots.txt', 'Sitemaps Found', 'Pages Discovered', 'Processed At'],
         ]
 
         campaign.domains.forEach(domain => {
             domainsData.push([
                 domain.url,
                 domain.status,
+                domain.technology || 'Unknown',
                 domain.hasRobotsTxt ? 'Yes' : 'No',
                 domain.sitemapsFound,
                 domain.pagesDiscovered,
@@ -66,8 +68,8 @@ export async function GET(request, { params }) {
             ])
         })
 
-        const ws_domains = xlsx.utils.aoa_to_sheet(domainsData)
-        xlsx.utils.book_append_sheet(wb, ws_domains, 'Domains')
+        const ws_domains = XLSX.utils.aoa_to_sheet(domainsData)
+        XLSX.utils.book_append_sheet(wb, ws_domains, 'Domains')
 
         // Pages sheet
         const pagesData = [
@@ -87,26 +89,47 @@ export async function GET(request, { params }) {
             })
         })
 
-        const ws_pages = xlsx.utils.aoa_to_sheet(pagesData)
-        xlsx.utils.book_append_sheet(wb, ws_pages, 'Pages')
+        const ws_pages = XLSX.utils.aoa_to_sheet(pagesData)
+        XLSX.utils.book_append_sheet(wb, ws_pages, 'Pages')
 
-        // Contacts sheet
+        // Contacts sheet - collect from both domains and campaign level
         const contactsData = [
             ['Domain', 'Email', 'Phone', 'Extracted From'],
         ]
 
-        campaign.contacts.forEach(contact => {
-            const domain = campaign.domains.find(d => d.id === contact.domainId)
-            contactsData.push([
-                domain?.url || '',
-                contact.email || '',
-                contact.phone || '',
-                contact.extractedFrom,
-            ])
+        // Collect all contacts from domains
+        campaign.domains.forEach(domain => {
+            if (domain.contacts && domain.contacts.length > 0) {
+                domain.contacts.forEach(contact => {
+                    contactsData.push([
+                        domain.url,
+                        contact.email || '',
+                        contact.phone || '',
+                        contact.extractedFrom || domain.url,
+                    ])
+                })
+            }
         })
 
-        const ws_contacts = xlsx.utils.aoa_to_sheet(contactsData)
-        xlsx.utils.book_append_sheet(wb, ws_contacts, 'Contacts')
+        // Also include any campaign-level contacts (fallback)
+        campaign.contacts.forEach(contact => {
+            const domain = campaign.domains.find(d => d.id === contact.domainId)
+            // Avoid duplicates - check if already added
+            const exists = contactsData.some(row =>
+                row[0] === (domain?.url || '') && row[1] === (contact.email || '')
+            )
+            if (!exists) {
+                contactsData.push([
+                    domain?.url || '',
+                    contact.email || '',
+                    contact.phone || '',
+                    contact.extractedFrom,
+                ])
+            }
+        })
+
+        const ws_contacts = XLSX.utils.aoa_to_sheet(contactsData)
+        XLSX.utils.book_append_sheet(wb, ws_contacts, 'Contacts')
 
         // Submissions sheet
         const submissionsData = [
@@ -127,11 +150,11 @@ export async function GET(request, { params }) {
             ])
         })
 
-        const ws_submissions = xlsx.utils.aoa_to_sheet(submissionsData)
-        xlsx.utils.book_append_sheet(wb, ws_submissions, 'Submissions')
+        const ws_submissions = XLSX.utils.aoa_to_sheet(submissionsData)
+        XLSX.utils.book_append_sheet(wb, ws_submissions, 'Submissions')
 
         // Generate buffer
-        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' })
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
 
         // Return as downloadable file
         return new NextResponse(buffer, {
