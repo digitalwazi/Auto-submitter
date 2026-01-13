@@ -1,65 +1,63 @@
 #!/usr/bin/env node
 
 /**
- * Background Worker for Queue Processing
+ * Background Worker for Per-Domain Sequential Processing
  * 
- * This worker continuously processes the queue without needing cron jobs.
- * It runs indefinitely and automatically handles tasks as they come in.
+ * This worker processes domains COMPLETELY before moving to the next:
+ * - Pick a pending domain
+ * - Analyze it
+ * - Crawl pages
+ * - Submit forms/comments
+ * - Mark COMPLETED
+ * - Move to next domain
  * 
- * Usage:
- *   node workers/queue-worker.js
- * 
- * For production (Render):
- *   Add to render.yaml as a background worker service
+ * Multiple domains are processed in parallel based on BATCH_SIZE.
  */
 
-import { processQueue, resetStuckTasks } from '../lib/queue/processor.js'
+import { processNextDomain, resetStuckDomains } from '../lib/queue/domain-processor.js'
 
-const POLL_INTERVAL = 5000 // Check every 5 seconds for new tasks
-const BATCH_SIZE = 3 // Process 3 tasks in parallel for good speed/stability balance
+const POLL_INTERVAL = 3000 // Check every 3 seconds for new domains
+const BATCH_SIZE = 5 // Process 5 domains in parallel (each domain handled sequentially)
 
-console.log('🚀 Queue Worker Started')
+console.log('🚀 Domain Worker Started (Per-Domain Sequential Mode)')
 console.log(`⚙️  Poll Interval: ${POLL_INTERVAL}ms`)
-console.log(`⚙️  Batch Size: ${BATCH_SIZE} parallel tasks`)
+console.log(`⚙️  Batch Size: ${BATCH_SIZE} parallel domains`)
 console.log('---')
 
-let isProcessing = false
-let processedCount = 0
+let domainsProcessed = 0
 let errorCount = 0
 
 async function processNextBatch() {
-    if (isProcessing) {
-        return // Already processing, skip this cycle
-    }
-
-    isProcessing = true
-
     try {
-        // Process multiple tasks in parallel
+        // Process multiple domains in parallel
         const results = await Promise.allSettled(
-            Array(BATCH_SIZE).fill().map(() => processQueue())
+            Array(BATCH_SIZE).fill().map(() => processNextDomain())
         )
 
         // Count successful processes
-        const successful = results.filter(r => r.status === 'fulfilled' && r.value).length
+        const successful = results.filter(r => r.status === 'fulfilled' && r.value === true).length
+        const noWork = results.filter(r => r.status === 'fulfilled' && r.value === false).length
 
         if (successful > 0) {
-            processedCount += successful
-            console.log(`✅ Processed ${successful} tasks (Total: ${processedCount})`)
+            domainsProcessed += successful
+            console.log(`\n✅ Batch complete: ${successful} domains processed (Total: ${domainsProcessed})`)
+        }
+
+        if (noWork === BATCH_SIZE) {
+            // All workers returned false = no domains available
+            console.log('📭 No pending domains in queue')
         }
 
         // Count errors
         const errors = results.filter(r => r.status === 'rejected').length
         if (errors > 0) {
             errorCount += errors
-            console.log(`❌ ${errors} tasks failed (Total errors: ${errorCount})`)
+            console.log(`❌ ${errors} domains failed (Total errors: ${errorCount})`)
         }
 
     } catch (error) {
         errorCount++
         console.error('❌ Worker error:', error.message)
-    } finally {
-        isProcessing = false
     }
 }
 
@@ -67,8 +65,8 @@ async function processNextBatch() {
 async function startWorker() {
     console.log('🔄 Worker loop starting...\n')
 
-    // Clean up any stuck tasks from previous runs
-    await resetStuckTasks()
+    // Clean up any stuck domains from previous runs
+    await resetStuckDomains()
 
     while (true) {
         await processNextBatch()
@@ -81,13 +79,13 @@ async function startWorker() {
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
     console.log('\n⏹️  SIGTERM received, shutting down gracefully...')
-    console.log(`📊 Final Stats: ${processedCount} processed, ${errorCount} errors`)
+    console.log(`📊 Final Stats: ${domainsProcessed} domains processed, ${errorCount} errors`)
     process.exit(0)
 })
 
 process.on('SIGINT', () => {
     console.log('\n⏹️  SIGINT received, shutting down gracefully...')
-    console.log(`📊 Final Stats: ${processedCount} processed, ${errorCount} errors`)
+    console.log(`📊 Final Stats: ${domainsProcessed} domains processed, ${errorCount} errors`)
     process.exit(0)
 })
 
