@@ -4,6 +4,7 @@ import prisma from '@/lib/db'
 export const dynamic = 'force-dynamic'
 
 // Get campaign details
+// Get campaign details
 export async function GET(request, props) {
     const params = await props.params;
     try {
@@ -11,39 +12,54 @@ export async function GET(request, props) {
 
         const campaign = await prisma.campaign.findUnique({
             where: { id },
-            include: {
-                domains: {
-                    include: {
-                        pages: true,
-                        contacts: true,
-                    },
-                },
-                pages: {
-                    include: {
-                        submissions: true,
-                    },
-                },
-                submissions: true,
-                contacts: true,
-            },
         })
 
         if (!campaign) {
             return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
         }
 
-        // Fetch activity logs (ProcessingQueue)
+        // Get queue stats for real progress calculation
+        const queueStats = await prisma.processingQueue.groupBy({
+            by: ['status'],
+            where: { campaignId: id },
+            _count: {
+                id: true
+            }
+        })
+
+        const queueCounts = {
+            PENDING: 0,
+            PROCESSING: 0,
+            COMPLETED: 0,
+            FAILED: 0
+        }
+
+        queueStats.forEach(stat => {
+            queueCounts[stat.status] = stat._count.id
+        })
+
+        // Fetch logs (paginated)
         const activityLogs = await prisma.processingQueue.findMany({
             where: { campaignId: id },
-            orderBy: { createdAt: 'desc' },
-            take: 100,
+            orderBy: { updatedAt: 'desc' },
+            take: 50,
+            select: {
+                id: true,
+                taskType: true,
+                status: true,
+                errorMessage: true,
+                result: true,
+                updatedAt: true,
+                domain: {
+                    select: { url: true }
+                }
+            }
         })
 
         return NextResponse.json({
-            campaign: {
-                ...campaign,
-                activityLogs
-            }
+            campaign,
+            queueCounts,
+            logs: activityLogs
         })
 
     } catch (error) {

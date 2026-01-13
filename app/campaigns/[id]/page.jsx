@@ -7,6 +7,8 @@ import Link from 'next/link'
 export default function CampaignDetailsPage() {
     const params = useParams()
     const [campaign, setCampaign] = useState(null)
+    const [queueCounts, setQueueCounts] = useState(null)
+    const [logs, setLogs] = useState([])
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState('overview')
 
@@ -15,6 +17,8 @@ export default function CampaignDetailsPage() {
             const response = await fetch(`/api/campaigns/${params.id}`)
             const data = await response.json()
             setCampaign(data.campaign)
+            setQueueCounts(data.queueCounts)
+            setLogs(data.logs || [])
         } catch (error) {
             console.error('Failed to fetch campaign:', error)
         } finally {
@@ -25,8 +29,8 @@ export default function CampaignDetailsPage() {
     useEffect(() => {
         fetchCampaign()
 
-        // Auto-refresh every 15 seconds
-        const interval = setInterval(fetchCampaign, 15000)
+        // Auto-refresh every 5 seconds for live updates
+        const interval = setInterval(fetchCampaign, 5000)
         return () => clearInterval(interval)
     }, [params.id])
 
@@ -67,9 +71,21 @@ export default function CampaignDetailsPage() {
         )
     }
 
-    const progress = campaign.totalDomains > 0
-        ? (campaign.processedDomains / campaign.totalDomains) * 100
-        : 0
+    // Calculate real progress based on tasks
+    let progress = 0
+    let totalTasks = 0
+    let completedTasks = 0
+
+    if (queueCounts) {
+        totalTasks = (queueCounts.PENDING || 0) + (queueCounts.PROCESSING || 0) + (queueCounts.COMPLETED || 0) + (queueCounts.FAILED || 0)
+        completedTasks = (queueCounts.COMPLETED || 0) + (queueCounts.FAILED || 0)
+        if (totalTasks > 0) {
+            progress = (completedTasks / totalTasks) * 100
+        }
+    } else if (campaign.totalDomains > 0) {
+        // Fallback to domain count
+        progress = (campaign.processedDomains / campaign.totalDomains) * 100
+    }
 
     return (
         <div className="min-h-screen p-8">
@@ -99,12 +115,18 @@ export default function CampaignDetailsPage() {
                         <p className="text-xl font-bold text-indigo-400">{campaign.status}</p>
                     </div>
                     <div className="card">
-                        <p className="text-sm text-gray-400 mb-1">Domains</p>
-                        <p className="text-xl font-bold">{campaign.processedDomains} / {campaign.totalDomains}</p>
+                        <p className="text-sm text-gray-400 mb-1">Task Queue</p>
+                        <p className="text-xl font-bold">
+                            {queueCounts ? (
+                                <span className={queueCounts.PENDING > 0 ? 'text-yellow-400' : 'text-gray-200'}>
+                                    {queueCounts.PENDING} pending
+                                </span>
+                            ) : '...'}
+                        </p>
                     </div>
                     <div className="card">
-                        <p className="text-sm text-gray-400 mb-1">Pages Found</p>
-                        <p className="text-xl font-bold text-blue-400">{campaign.totalPages}</p>
+                        <p className="text-sm text-gray-400 mb-1">Domains</p>
+                        <p className="text-xl font-bold text-blue-400">{campaign.processedDomains} / {campaign.totalDomains}</p>
                     </div>
                     <div className="card">
                         <p className="text-sm text-gray-400 mb-1">Forms</p>
@@ -119,7 +141,7 @@ export default function CampaignDetailsPage() {
                 {/* Progress */}
                 <div className="card mb-8">
                     <div className="flex justify-between mb-2">
-                        <h3 className="font-semibold">Overall Progress</h3>
+                        <h3 className="font-semibold">Overall Progress ({completedTasks}/{totalTasks} tasks)</h3>
                         <span className="text-sm text-gray-400">{progress.toFixed(1)}%</span>
                     </div>
                     <div className="progress-bar">
@@ -129,7 +151,7 @@ export default function CampaignDetailsPage() {
 
                 {/* Tabs */}
                 <div className="mb-6 flex gap-4 border-b border-gray-800">
-                    {['overview', 'domains', 'pages', 'contacts', 'submissions', 'logs'].map(tab => (
+                    {['overview', 'logs'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -289,12 +311,13 @@ export default function CampaignDetailsPage() {
                                 </button>
                             </div>
                             <div className="space-y-2">
-                                {campaign.activityLogs?.map(log => (
+                                {logs.map(log => (
                                     <div key={log.id} className="p-3 bg-gray-900/50 rounded-lg text-sm font-mono border-l-4 border-gray-700 hover:bg-gray-800 transition-colors"
                                         style={{
                                             borderLeftColor: log.status === 'COMPLETED' ? '#4ade80' :
                                                 log.status === 'FAILED' ? '#f87171' :
-                                                    log.status === 'PROCESSING' ? '#60a5fa' : '#374151'
+                                                    log.status === 'PROCESSING' ? '#60a5fa' :
+                                                        log.status === 'PENDING' ? '#facc15' : '#374151'
                                         }}>
                                         <div className="flex justify-between items-start mb-1">
                                             <span className="font-bold text-gray-300">{log.taskType}</span>
@@ -302,9 +325,9 @@ export default function CampaignDetailsPage() {
                                         </div>
                                         <div className="flex justify-between items-center text-xs">
                                             <span className={`px-1.5 py-0.5 rounded ${log.status === 'COMPLETED' ? 'bg-green-900/30 text-green-400' :
-                                                    log.status === 'FAILED' ? 'bg-red-900/30 text-red-400' :
-                                                        log.status === 'PROCESSING' ? 'bg-blue-900/30 text-blue-400' :
-                                                            'bg-gray-700 text-gray-400'
+                                                log.status === 'FAILED' ? 'bg-red-900/30 text-red-400' :
+                                                    log.status === 'PROCESSING' ? 'bg-blue-900/30 text-blue-400' :
+                                                        'bg-gray-700 text-gray-400'
                                                 }`}>
                                                 {log.status}
                                             </span>
@@ -321,7 +344,10 @@ export default function CampaignDetailsPage() {
                                             </div>
                                         )}
                                     </div>
-                                )) || <p className="text-gray-500 text-center py-8">No activity logs found</p>}
+                                ))}
+                                {logs.length === 0 && (
+                                    <p className="text-gray-500 text-center py-8">No activity logs found</p>
+                                )}
                             </div>
                         </div>
                     )}
