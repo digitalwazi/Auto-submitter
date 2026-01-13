@@ -18,6 +18,7 @@ module.exports = {
             autorestart: true,
             watch: false,
             max_memory_restart: "1G",
+            cron_restart: "0 * * * *",  // Restart every hour at minute 0 (prevents memory buildup)
             env: {
                 NODE_ENV: "production"
             }

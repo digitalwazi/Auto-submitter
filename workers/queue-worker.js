@@ -16,7 +16,7 @@
 import { processQueue, resetStuckTasks } from '../lib/queue/processor.js'
 
 const POLL_INTERVAL = 5000 // Check every 5 seconds for new tasks
-const BATCH_SIZE = 1 // Process 1 task at a time for stability (prevents VPS crashes)
+const BATCH_SIZE = 3 // Process 3 tasks in parallel for good speed/stability balance
 
 console.log('🚀 Queue Worker Started')
 console.log(`⚙️  Poll Interval: ${POLL_INTERVAL}ms`)
