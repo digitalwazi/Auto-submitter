@@ -43,7 +43,7 @@ export async function GET(request, props) {
         // Fetch logs (paginated)
         const activityLogs = await prisma.processingQueue.findMany({
             where: { campaignId: id },
-            orderBy: { updatedAt: 'desc' },
+            orderBy: { createdAt: 'desc' },
             take: 50,
             select: {
                 id: true,
@@ -51,7 +51,7 @@ export async function GET(request, props) {
                 status: true,
                 errorMessage: true,
                 result: true,
-                updatedAt: true,
+                createdAt: true,
                 domain: {
                     select: { url: true }
                 }
