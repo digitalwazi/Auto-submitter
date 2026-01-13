@@ -12,15 +12,23 @@ export default function CampaignDetailsPage() {
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState('overview')
 
+    const [errorMsg, setErrorMsg] = useState(null)
+
     const fetchCampaign = async () => {
         try {
             const response = await fetch(`/api/campaigns/${params.id}`)
+            if (!response.ok) {
+                const errText = await response.text()
+                throw new Error(`Status: ${response.status} - ${errText}`)
+            }
             const data = await response.json()
             setCampaign(data.campaign)
             setQueueCounts(data.queueCounts)
             setLogs(data.logs || [])
+            setErrorMsg(null)
         } catch (error) {
             console.error('Failed to fetch campaign:', error)
+            setErrorMsg(error.message)
         } finally {
             setLoading(false)
         }
@@ -61,8 +69,14 @@ export default function CampaignDetailsPage() {
     if (!campaign) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <div className="card text-center">
-                    <p className="text-xl mb-4">Campaign not found</p>
+                <div className="card text-center max-w-lg">
+                    <p className="text-xl mb-4 font-bold text-red-500">Campaign Not Found</p>
+                    {errorMsg && (
+                        <div className="mb-6 p-4 bg-red-900/40 rounded text-left overflow-auto max-h-40">
+                            <p className="font-mono text-sm text-red-200 break-all">{errorMsg}</p>
+                            <p className="text-xs text-gray-400 mt-2">ID: {params.id}</p>
+                        </div>
+                    )}
                     <Link href="/" className="btn-primary">
                         Back to Dashboard
                     </Link>

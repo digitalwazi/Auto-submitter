@@ -9,12 +9,14 @@ export async function GET(request, props) {
     const params = await props.params;
     try {
         const { id } = params
+        console.log(`🔍 API fetching campaign: ${id}`)
 
         const campaign = await prisma.campaign.findUnique({
             where: { id },
         })
 
         if (!campaign) {
+            console.error(`❌ Campaign ${id} NOT FOUND in DB`)
             return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
         }
 
