@@ -13,6 +13,7 @@ export default function CampaignDetailsPage() {
     const [activeTab, setActiveTab] = useState('overview')
 
     const [errorMsg, setErrorMsg] = useState(null)
+    const [detailsLoaded, setDetailsLoaded] = useState(false)
 
     const fetchCampaign = async () => {
         try {
@@ -41,6 +42,33 @@ export default function CampaignDetailsPage() {
         const interval = setInterval(fetchCampaign, 5000)
         return () => clearInterval(interval)
     }, [params.id])
+
+    // Lazy load heavy data
+
+    // Lazy load heavy data
+    const loadDetailedData = async () => {
+        if (detailsLoaded) return
+        try {
+            const res = await fetch(`/api/campaigns/${params.id}/data`)
+            const data = await res.json()
+            setCampaign(prev => ({
+                ...prev,
+                domains: data.domains,
+                contacts: data.contacts,
+                pages: data.pages,
+                submissions: data.submissions
+            }))
+            setDetailsLoaded(true)
+        } catch (e) {
+            console.error("Failed to load details", e)
+        }
+    }
+
+    useEffect(() => {
+        if (['domains', 'pages', 'contacts', 'submissions'].includes(activeTab)) {
+            loadDetailedData()
+        }
+    }, [activeTab])
 
     const handleExport = async () => {
         try {
@@ -101,8 +129,6 @@ export default function CampaignDetailsPage() {
         progress = (campaign.processedDomains / campaign.totalDomains) * 100
     }
 
-    const [detailsLoaded, setDetailsLoaded] = useState(false)
-
     // Parse config to decide which tabs to show
     const config = campaign?.config ? JSON.parse(campaign.config) : {}
 
@@ -114,33 +140,8 @@ export default function CampaignDetailsPage() {
 
         if (hasExtraction || campaign.totalDomains > 0) tabs.push('domains', 'pages')
         if (config.extractEmails || config.extractPhones) tabs.push('contacts')
-        if (campaign.submitForms || campaign.submitComments) tabs.push('submissions')
+        if (config.submitForms || config.submitComments) tabs.push('submissions')
     }
-
-    // Lazy load heavy data
-    const loadDetailedData = async () => {
-        if (detailsLoaded) return
-        try {
-            const res = await fetch(`/api/campaigns/${params.id}/data`)
-            const data = await res.json()
-            setCampaign(prev => ({
-                ...prev,
-                domains: data.domains,
-                contacts: data.contacts,
-                pages: data.pages,
-                submissions: data.submissions
-            }))
-            setDetailsLoaded(true)
-        } catch (e) {
-            console.error("Failed to load details", e)
-        }
-    }
-
-    useEffect(() => {
-        if (['domains', 'pages', 'contacts', 'submissions'].includes(activeTab)) {
-            loadDetailedData()
-        }
-    }, [activeTab])
 
     return (
         <div className="min-h-screen p-8">
