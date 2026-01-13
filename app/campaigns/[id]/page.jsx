@@ -101,6 +101,47 @@ export default function CampaignDetailsPage() {
         progress = (campaign.processedDomains / campaign.totalDomains) * 100
     }
 
+    const [detailsLoaded, setDetailsLoaded] = useState(false)
+
+    // Parse config to decide which tabs to show
+    const config = campaign?.config ? JSON.parse(campaign.config) : {}
+
+    const tabs = ['overview', 'logs']
+
+    if (campaign) {
+        // Show data tabs if extraction or detection was enabled
+        const hasExtraction = config.detectTechnology || config.extractEmails || config.extractPhones || config.extractForms || config.extractComments
+
+        if (hasExtraction || campaign.totalDomains > 0) tabs.push('domains', 'pages')
+        if (config.extractEmails || config.extractPhones) tabs.push('contacts')
+        if (campaign.submitForms || campaign.submitComments) tabs.push('submissions')
+    }
+
+    // Lazy load heavy data
+    const loadDetailedData = async () => {
+        if (detailsLoaded) return
+        try {
+            const res = await fetch(`/api/campaigns/${params.id}/data`)
+            const data = await res.json()
+            setCampaign(prev => ({
+                ...prev,
+                domains: data.domains,
+                contacts: data.contacts,
+                pages: data.pages,
+                submissions: data.submissions
+            }))
+            setDetailsLoaded(true)
+        } catch (e) {
+            console.error("Failed to load details", e)
+        }
+    }
+
+    useEffect(() => {
+        if (['domains', 'pages', 'contacts', 'submissions'].includes(activeTab)) {
+            loadDetailedData()
+        }
+    }, [activeTab])
+
     return (
         <div className="min-h-screen p-8">
             <div className="max-w-7xl mx-auto">
@@ -164,12 +205,12 @@ export default function CampaignDetailsPage() {
                 </div>
 
                 {/* Tabs */}
-                <div className="mb-6 flex gap-4 border-b border-gray-800">
-                    {['overview', 'logs'].map(tab => (
+                <div className="mb-6 flex gap-4 border-b border-gray-800 overflow-x-auto">
+                    {tabs.map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
-                            className={`pb-3 px-2 capitalize transition-colors ${activeTab === tab
+                            className={`pb-3 px-2 capitalize transition-colors whitespace-nowrap ${activeTab === tab
                                 ? 'text-indigo-400 border-b-2 border-indigo-400'
                                 : 'text-gray-500 hover:text-gray-300'
                                 }`}

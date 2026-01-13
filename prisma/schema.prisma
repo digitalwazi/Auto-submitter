@@ -68,6 +68,7 @@ model Domain {
   campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   pages             PageDiscovery[]
   contacts          ExtractedContact[]
+  processingQueue   ProcessingQueue[]
   
   @@unique([campaignId, url])
 }
@@ -162,4 +163,5 @@ model ProcessingQueue {
   completedAt       DateTime?
   
   campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  domain            Domain?  @relation(fields: [domainId], references: [id], onDelete: Cascade)
 }
