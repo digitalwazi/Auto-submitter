@@ -35,19 +35,9 @@ export default function CampaignDetailsPage() {
         }
     }
 
-    useEffect(() => {
-        fetchCampaign()
-
-        // Auto-refresh every 5 seconds for live updates
-        const interval = setInterval(fetchCampaign, 5000)
-        return () => clearInterval(interval)
-    }, [params.id])
-
     // Lazy load heavy data
-
-    // Lazy load heavy data
-    const loadDetailedData = async () => {
-        if (detailsLoaded) return
+    const loadDetailedData = async (force = false) => {
+        if (detailsLoaded && !force) return
         try {
             const res = await fetch(`/api/campaigns/${params.id}/data`)
             const data = await res.json()
@@ -65,10 +55,21 @@ export default function CampaignDetailsPage() {
     }
 
     useEffect(() => {
+        fetchCampaign()
         if (['domains', 'pages', 'contacts', 'submissions'].includes(activeTab)) {
-            loadDetailedData()
+            loadDetailedData(true)
         }
-    }, [activeTab])
+
+        // Auto-refresh every 5 seconds for live updates
+        const interval = setInterval(() => {
+            fetchCampaign()
+            if (['domains', 'pages', 'contacts', 'submissions'].includes(activeTab)) {
+                loadDetailedData(true)
+            }
+        }, 5000)
+
+        return () => clearInterval(interval)
+    }, [params.id, activeTab])
 
     const handleExport = async () => {
         try {
@@ -130,17 +131,36 @@ export default function CampaignDetailsPage() {
     }
 
     // Parse config to decide which tabs to show
-    const config = campaign?.config ? JSON.parse(campaign.config) : {}
+    let config = {}
+    try {
+        if (campaign?.config) config = JSON.parse(campaign.config)
+    } catch (e) { }
 
     const tabs = ['overview', 'logs']
 
     if (campaign) {
         // Show data tabs if extraction or detection was enabled
-        const hasExtraction = config.detectTechnology || config.extractEmails || config.extractPhones || config.extractForms || config.extractComments
+        const hasExtraction =
+            config.detectTechnology ||
+            config.extractEmails ||
+            config.extractPhones ||
+            config.extractForms ||
+            config.extractComments ||
+            (Array.isArray(config.extraction) && config.extraction.length > 0) ||
+            config.mode === 'extract'
 
         if (hasExtraction || campaign.totalDomains > 0) tabs.push('domains', 'pages')
-        if (config.extractEmails || config.extractPhones) tabs.push('contacts')
-        if (config.submitForms || config.submitComments) tabs.push('submissions')
+
+        const hasContacts =
+            config.extractEmails ||
+            config.extractPhones ||
+            (config.extraction?.includes && (config.extraction.includes('email') || config.extraction.includes('phone'))) ||
+            config.mode === 'extract'
+
+        if (hasContacts) tabs.push('contacts')
+
+        const hasSubmission = config.submitForms || config.submitComments || config.mode === 'submit'
+        if (hasSubmission) tabs.push('submissions')
     }
 
     return (
