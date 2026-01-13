@@ -17,13 +17,13 @@ export default function CampaignDetailsPage() {
 
     const fetchCampaign = async () => {
         try {
-            const response = await fetch(`/api/campaigns/${params.id}`)
-            if (!response.ok) {
-                const errText = await response.text()
-                throw new Error(`Status: ${response.status} - ${errText}`)
+            const res = await fetch(`/api/campaigns/${params.id}`)
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}))
+                throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`)
             }
-            const data = await response.json()
-            setCampaign(data.campaign)
+            const data = await res.json()
+            setCampaign(prev => prev ? ({ ...prev, ...data.campaign }) : data.campaign)
             setQueueCounts(data.queueCounts)
             setLogs(data.logs || [])
             setErrorMsg(null)

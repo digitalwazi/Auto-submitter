@@ -28,7 +28,7 @@ export async function GET(request, props) {
 
         const submissions = await prisma.submissionLog.findMany({
             where: { campaignId: id },
-            orderBy: { createdAt: 'desc' },
+            orderBy: { submittedAt: 'desc' },
             take: 1000
         })
 
