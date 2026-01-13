@@ -269,7 +269,7 @@ export default function EnhancedTestPage() {
                     <h2 className="text-xl font-bold mb-4">🎯 Mode</h2>
                     <div className="grid grid-cols-2 gap-4">
                         <button
-                            onClick={() => setConfig({ ...config, mode: 'extract' })}
+                            onClick={() => setConfig({ ...config, mode: 'extract', submitForms: false, submitComments: false })}
                             className={`px-6 py-4 rounded-lg font-semibold text-left ${config.mode === 'extract'
                                 ? 'bg-blue-600 text-white'
                                 : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -279,7 +279,7 @@ export default function EnhancedTestPage() {
                             <div className="text-sm opacity-80">Find forms, comments, contacts (Fast)</div>
                         </button>
                         <button
-                            onClick={() => setConfig({ ...config, mode: 'submit' })}
+                            onClick={() => setConfig({ ...config, mode: 'submit', submitForms: true, submitComments: true })}
                             className={`px-6 py-4 rounded-lg font-semibold text-left ${config.mode === 'submit'
                                 ? 'bg-purple-600 text-white'
                                 : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
