@@ -13,7 +13,7 @@
  *   Add to render.yaml as a background worker service
  */
 
-import { processQueue } from '../lib/queue/processor.js'
+import { processQueue, resetStuckTasks } from '../lib/queue/processor.js'
 
 const POLL_INTERVAL = 5000 // Check every 5 seconds for new tasks
 const BATCH_SIZE = 3 // Process up to 3 tasks in parallel
@@ -66,6 +66,9 @@ async function processNextBatch() {
 // Main worker loop
 async function startWorker() {
     console.log('🔄 Worker loop starting...\n')
+
+    // Clean up any stuck tasks from previous runs
+    await resetStuckTasks()
 
     while (true) {
         await processNextBatch()
