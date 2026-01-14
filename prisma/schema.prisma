@@ -42,6 +42,7 @@ model Campaign {
   submissions       SubmissionLog[]
   contacts          ExtractedContact[]
   processingQueue   ProcessingQueue[]
+  logs              CampaignLog[]
 }
 
 model Domain {
@@ -164,4 +165,17 @@ model ProcessingQueue {
   
   campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   domain            Domain?  @relation(fields: [domainId], references: [id], onDelete: Cascade)
+}
+
+// Terminal-style logs for live view in UI
+model CampaignLog {
+  id                String   @id @default(cuid())
+  campaignId        String
+  domainId          String?
+  
+  level             String   @default("INFO")  // INFO, SUCCESS, WARNING, ERROR
+  message           String
+  timestamp         DateTime @default(now())
+  
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 }

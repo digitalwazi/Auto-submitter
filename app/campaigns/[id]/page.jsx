@@ -14,6 +14,8 @@ export default function CampaignDetailsPage() {
 
     const [errorMsg, setErrorMsg] = useState(null)
     const [detailsLoaded, setDetailsLoaded] = useState(false)
+    const [terminalLogs, setTerminalLogs] = useState([])
+    const [terminalPolling, setTerminalPolling] = useState(false)
 
     const fetchCampaign = async () => {
         try {
@@ -54,19 +56,38 @@ export default function CampaignDetailsPage() {
         }
     }
 
+    // Fetch terminal-style logs
+    const fetchTerminalLogs = async () => {
+        try {
+            const res = await fetch(`/api/campaigns/${params.id}/logs?limit=200`)
+            const data = await res.json()
+            if (data.success && data.logs) {
+                setTerminalLogs(data.logs)
+            }
+        } catch (e) {
+            console.error("Failed to load terminal logs", e)
+        }
+    }
+
     useEffect(() => {
         fetchCampaign()
         if (['domains', 'pages', 'contacts', 'submissions'].includes(activeTab)) {
             loadDetailedData(true)
         }
+        if (activeTab === 'terminal') {
+            fetchTerminalLogs()
+        }
 
-        // Auto-refresh every 5 seconds for live updates
+        // Auto-refresh every 3 seconds for live updates
         const interval = setInterval(() => {
             fetchCampaign()
             if (['domains', 'pages', 'contacts', 'submissions'].includes(activeTab)) {
                 loadDetailedData(true)
             }
-        }, 5000)
+            if (activeTab === 'terminal') {
+                fetchTerminalLogs()
+            }
+        }, 3000)
 
         return () => clearInterval(interval)
     }, [params.id, activeTab])
@@ -136,7 +157,7 @@ export default function CampaignDetailsPage() {
         if (campaign?.config) config = JSON.parse(campaign.config)
     } catch (e) { }
 
-    const tabs = ['overview', 'logs']
+    const tabs = ['overview', 'terminal', 'logs']
 
     if (campaign) {
         // Show data tabs if extraction or detection was enabled
@@ -274,6 +295,56 @@ export default function CampaignDetailsPage() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'terminal' && (
+                        <div className="card">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold">🖥️ Live Terminal Logs</h3>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs text-gray-400">Auto-refreshing every 3s</span>
+                                    <span className={`w-2 h-2 rounded-full ${campaign.status === 'RUNNING' ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
+                                </div>
+                            </div>
+                            <div
+                                className="bg-gray-950 rounded-lg p-4 font-mono text-sm overflow-y-auto max-h-[600px] border border-gray-800"
+                                style={{
+                                    backgroundColor: '#0d1117',
+                                    scrollbarWidth: 'thin',
+                                    fontFamily: 'Consolas, Monaco, "Courier New", monospace'
+                                }}
+                            >
+                                {terminalLogs.length === 0 ? (
+                                    <div className="text-gray-500 text-center py-8">
+                                        <p>No logs yet...</p>
+                                        <p className="text-xs mt-2">Logs will appear here when the worker starts processing.</p>
+                                    </div>
+                                ) : (
+                                    terminalLogs.map((log, index) => {
+                                        const timeStr = new Date(log.timestamp).toLocaleTimeString()
+                                        const levelColors = {
+                                            'INFO': 'text-blue-400',
+                                            'SUCCESS': 'text-green-400',
+                                            'WARNING': 'text-yellow-400',
+                                            'ERROR': 'text-red-400',
+                                            'STEP': 'text-purple-400',
+                                        }
+                                        const levelColor = levelColors[log.level] || 'text-gray-400'
+
+                                        return (
+                                            <div key={log.id || index} className="flex gap-2 py-0.5 hover:bg-gray-900/50">
+                                                <span className="text-gray-600 select-none">[{timeStr}]</span>
+                                                <span className={`${levelColor} font-semibold`}>[{log.level}]</span>
+                                                <span className="text-gray-300">{log.message}</span>
+                                            </div>
+                                        )
+                                    })
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                                Showing last {terminalLogs.length} log entries
+                            </p>
                         </div>
                     )}
 
