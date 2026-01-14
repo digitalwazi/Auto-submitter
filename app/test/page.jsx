@@ -767,7 +767,7 @@ export default function EnhancedTestPage() {
                 <div className="flex gap-4 mb-6 items-center">
                     <button
                         onClick={handleStart}
-                        disabled={!file || running}
+                        disabled={(inputMode === 'file' && !file) || (inputMode === 'paste' && !pastedDomains) || running}
                         className="btn-primary flex-1 py-4 text-lg"
                     >
                         {running ? '⏳ Processing...' : '🚀 Start Processing'}
