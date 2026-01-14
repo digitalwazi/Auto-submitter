@@ -14,11 +14,12 @@ module.exports = {
         {
             name: "auto-submitter-worker",
             script: "workers/queue-worker.js",
-            instances: 1,
+            instances: "max",  // Scale to all available CPU cores
+            exec_mode: "cluster",
             autorestart: true,
             watch: false,
             max_memory_restart: "1G",
-            cron_restart: "0 * * * *",  // Restart every hour at minute 0 (prevents memory buildup)
+            cron_restart: "0 */4 * * *",  // Restart every 4 hours (reduced freq)
             env: {
                 NODE_ENV: "production"
             }
