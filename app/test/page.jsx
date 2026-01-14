@@ -12,6 +12,8 @@ export default function EnhancedTestPage() {
     const [results, setResults] = useState([])
     const [progress, setProgress] = useState({ current: 0, total: 0 })
     const [showAdvanced, setShowAdvanced] = useState(false)
+    const [inputMode, setInputMode] = useState('file') // 'file' or 'paste'
+    const [pastedDomains, setPastedDomains] = useState('')
     const [screenshotPaths, setScreenshotPaths] = useState([])
     const [config, setConfig] = useState({
         mode: 'extract',
@@ -75,9 +77,22 @@ export default function EnhancedTestPage() {
     const router = useRouter() // Add this
 
     const handleStart = async () => {
-        if (!file) {
-            alert('Please select a domains file')
-            return
+        // Handle File or Paste
+        let fileToUpload = file
+
+        if (inputMode === 'paste') {
+            if (!pastedDomains.trim()) {
+                alert('Please paste some domains')
+                return
+            }
+            // Convert text to file
+            const blob = new Blob([pastedDomains], { type: 'text/plain' })
+            fileToUpload = new File([blob], "pasted_domains.txt", { type: "text/plain" })
+        } else {
+            if (!fileToUpload) {
+                alert('Please select a domains file')
+                return
+            }
         }
 
         setRunning(true)
@@ -90,7 +105,7 @@ export default function EnhancedTestPage() {
             addLog('🚀 Starting domain processing...', 'success')
 
             const formData = new FormData()
-            formData.append('file', file)
+            formData.append('file', fileToUpload)
             formData.append('config', JSON.stringify(config))
 
             const response = await fetch('/api/test/parallel', {
@@ -297,18 +312,67 @@ export default function EnhancedTestPage() {
                     </div>
                 </div>
 
-                {/* File Upload */}
-                <div className="card mb-6">
-                    <h2 className="text-xl font-bold mb-4">📁 Upload Domains</h2>
-                    <input
-                        type="file"
-                        accept=".txt"
-                        onChange={(e) => setFile(e.target.files[0])}
-                        className="input mb-2"
-                    />
-                    <p className="text-sm text-gray-400">
-                        Upload .txt file (one domain per line, supports 1000s of domains)
-                    </p>
+                {/* Domain Source */}
+                <div className="card mb-6 border-2 border-indigo-500/30">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span className="text-indigo-400">📂</span> Domain Source
+                    </h2>
+
+                    {/* Input Mode Toggle */}
+                    <div className="flex gap-4 mb-4">
+                        <button
+                            onClick={() => setInputMode('file')}
+                            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all flex items-center justify-center gap-2 ${inputMode === 'file'
+                                ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300'
+                                : 'border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                }`}
+                        >
+                            <span>📁</span> File Upload
+                        </button>
+                        <button
+                            onClick={() => setInputMode('paste')}
+                            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all flex items-center justify-center gap-2 ${inputMode === 'paste'
+                                ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300'
+                                : 'border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                }`}
+                        >
+                            <span>📝</span> Paste List
+                        </button>
+                    </div>
+
+                    {inputMode === 'file' ? (
+                        <div className="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center hover:border-gray-500 transition-colors">
+                            <input
+                                type="file"
+                                id="file-upload"
+                                className="hidden"
+                                accept=".txt,.csv"
+                                onChange={(e) => setFile(e.target.files[0])}
+                            />
+                            <label htmlFor="file-upload" className="cursor-pointer block">
+                                <div className="text-4xl mb-4">📄</div>
+                                <p className="text-lg font-medium mb-2">
+                                    {file ? file.name : "Click to select file (.txt)"}
+                                </p>
+                                <p className="text-sm text-gray-400">
+                                    {file ? `${(file.size / 1024).toFixed(2)} KB` : "Supports 100k+ domains"}
+                                </p>
+                            </label>
+                        </div>
+                    ) : (
+                        <div>
+                            <textarea
+                                value={pastedDomains}
+                                onChange={(e) => setPastedDomains(e.target.value)}
+                                placeholder={`example.com\ngoogle.com\n... paste 100k+ domains here`}
+                                className="w-full h-64 bg-gray-900 border border-gray-700 rounded-lg p-4 font-mono text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                            />
+                            <div className="mt-2 flex justify-between text-xs text-gray-500">
+                                <span>Supported: 100,000+ lines</span>
+                                <span>{pastedDomains.split('\n').filter(l => l.trim()).length.toLocaleString()} lines</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Main Settings */}
