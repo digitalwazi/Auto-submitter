@@ -35,9 +35,9 @@ export default function EnhancedTestPage() {
         // Submission options
         submitForms: false,
         submitComments: false,
-        senderName: 'Test User',
-        senderEmail: 'test@example.com',
-        message: 'Hi, great site!',
+        senderName: 'Bundle WP',
+        senderEmail: 'support@bundlewp.com',
+        message: 'The Best Wordpress Plugin with 30+ Wordpress Modules and 30+ Woocommerce Modules With 30 Days Money Back Gurantee. Cost Only 9$ - Limited Period Offer.\n\nPurchase Link - https://doffl.com/go/Aqjr6V\n\nFree 50+ HTML Templates and 150+ Blocks Completely',
 
         // === NEW FEATURES ===
         // Screenshots
