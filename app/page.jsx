@@ -57,6 +57,27 @@ export default function HomePage() {
         }
     }
 
+    const handleReset = async () => {
+        if (!confirm('⚠️ DANGER: This will DELETE ALL DATA (Campaigns, Domains, Logs). Are you sure?')) return
+        if (!confirm('☠️ FINAL WARNING: This cannot be undone. Confirm RESET?')) return
+
+        setLoading(true)
+        try {
+            const response = await fetch('/api/admin/reset', { method: 'POST' })
+            const result = await response.json()
+            if (result.success) {
+                alert('✅ System Reset Successful. Dashboard will refresh.')
+                fetchCampaigns()
+            } else {
+                alert('❌ Reset Failed: ' + result.error)
+            }
+        } catch (error) {
+            alert('❌ API Error: ' + error.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
         <div className="min-h-screen p-8">
             <div className="max-w-7xl mx-auto">
@@ -73,6 +94,13 @@ export default function HomePage() {
                         </div>
 
                         <div className="flex gap-4">
+                            <button
+                                onClick={handleReset}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-colors"
+                            >
+                                🗑️ Reset System
+                            </button>
+
                             <button
                                 onClick={handleManualProcess}
                                 className="btn-secondary"
