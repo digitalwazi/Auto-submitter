@@ -70,9 +70,38 @@ export default function EnhancedTestPage() {
         runInBackground: false,
     })
 
+    const [checkingSystem, setCheckingSystem] = useState(false)
+    const [systemStatus, setSystemStatus] = useState(null)
+
     const addLog = (message, type = 'info') => {
         const timestamp = new Date().toLocaleTimeString()
         setLogs(prev => [...prev, { timestamp, message, type }])
+    }
+
+    const handleCheckSystem = async () => {
+        setCheckingSystem(true)
+        setSystemStatus(null)
+        addLog('🔍 Checking system dependencies (Playwright, Browser)...', 'info')
+
+        try {
+            const res = await fetch('/api/system/diagnostics')
+            const data = await res.json()
+
+            setSystemStatus(data)
+
+            if (data.success) {
+                addLog(`✅ System Healthy: ${data.message}`, 'success')
+                alert(`✅ System is Ready!\n\n${data.message}\n\nEnvironment: ${data.details.platform} (${data.details.arch})`)
+            } else {
+                addLog(`❌ Check Failed: ${data.message}`, 'error')
+                alert(`❌ System Check Failed!\n\nError: ${data.error}\n\nFix: ${data.fixCommand || 'Check logs'}`)
+            }
+        } catch (e) {
+            addLog(`❌ Diagnostic Error: ${e.message}`, 'error')
+            alert('Failed to run diagnostics')
+        } finally {
+            setCheckingSystem(false)
+        }
     }
 
     const router = useRouter() // Add this
@@ -771,7 +800,6 @@ export default function EnhancedTestPage() {
                     </div>
                 )}
 
-                {/* Action Buttons */}
                 <div className="flex gap-4 mb-6 items-center">
                     <button
                         onClick={handleStart}
@@ -795,6 +823,15 @@ export default function EnhancedTestPage() {
                             </div>
                         </label>
                     </div>
+
+                    <button
+                        onClick={handleCheckSystem}
+                        disabled={checkingSystem || running}
+                        className="btn-secondary py-4 px-6 flex flex-col items-center justify-center bg-blue-900/30 border-blue-500/50 hover:bg-blue-900/50"
+                        title="Test if Playwright & Dependencies are working"
+                    >
+                        {checkingSystem ? 'Please Wait...' : '🏥 Test System'}
+                    </button>
 
                     <button
                         onClick={handleExport}
