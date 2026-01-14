@@ -11,8 +11,8 @@ export async function GET(request, props) {
         // Fetch heavy data separately
         const domains = await prisma.domain.findMany({
             where: { campaignId: id },
-            orderBy: { url: 'asc' },
-            take: 1000 // Limit for safety
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            // Removed limit as per user request (was take: 1000)
         })
 
         const contacts = await prisma.extractedContact.findMany({

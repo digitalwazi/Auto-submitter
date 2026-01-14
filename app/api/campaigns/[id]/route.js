@@ -20,8 +20,8 @@ export async function GET(request, props) {
             return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
         }
 
-        // Get queue stats for real progress calculation
-        const queueStats = await prisma.processingQueue.groupBy({
+        // Get queue stats for real progress calculation based on DOMAINS
+        const queueStats = await prisma.domain.groupBy({
             by: ['status'],
             where: { campaignId: id },
             _count: {
