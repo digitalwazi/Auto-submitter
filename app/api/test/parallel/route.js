@@ -60,25 +60,16 @@ export async function POST(request) {
 
                 await prisma.$transaction(async (tx) => {
                     for (const url of batch) {
-                        // Create Domain
-                        const domain = await tx.domain.create({
+                        // Create Domain with PENDING status
+                        // The new domain-processor will pick up domains directly by status
+                        await tx.domain.create({
                             data: {
                                 campaignId: campaign.id,
                                 url: url,
                                 status: 'PENDING',
                             }
                         })
-
-                        // Add to Queue (Analyze Task)
-                        await tx.processingQueue.create({
-                            data: {
-                                campaignId: campaign.id,
-                                domainId: domain.id,
-                                taskType: 'ANALYZE_DOMAIN',
-                                priority: 10, // High priority for initial analysis
-                                scheduledFor: new Date(),
-                            }
-                        })
+                        // NOTE: No ProcessingQueue task needed - domain-processor handles it
                     }
                 })
 
