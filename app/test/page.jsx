@@ -103,12 +103,15 @@ export default function EnhancedTestPage() {
                 const data = await response.json()
                 if (data.success) {
                     addLog(`✅ ${data.message}`, 'success')
+                    if (data.estimatedTime) {
+                        addLog(`⏱️ Estimated completion time: ${data.estimatedTime}`, 'info')
+                    }
                     addLog('🔄 Redirecting to campaign dashboard...', 'info')
 
                     // Small delay to let user see the success message
                     setTimeout(() => {
                         router.push(`/campaigns/${data.campaignId}`)
-                    }, 1500)
+                    }, 2000) // Increased to 2s so user can see the ETA
                 } else {
                     addLog(`❌ Error: ${data.error}`, 'error')
                 }

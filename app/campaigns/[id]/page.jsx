@@ -151,6 +151,27 @@ export default function CampaignDetailsPage() {
         progress = (campaign.processedDomains / campaign.totalDomains) * 100
     }
 
+    // Calculate estimated remaining time
+    const pendingDomains = campaign.totalDomains - campaign.processedDomains
+    const parallelWorkers = 5
+    const avgMinutesPerDomain = 1.5
+    const remainingMinutes = Math.ceil((pendingDomains / parallelWorkers) * avgMinutesPerDomain)
+
+    let estimatedRemaining = ''
+    if (remainingMinutes > 0 && campaign.status === 'RUNNING') {
+        const hours = Math.floor(remainingMinutes / 60)
+        const mins = remainingMinutes % 60
+        if (hours > 24) {
+            const days = Math.floor(hours / 24)
+            const remainingHours = hours % 24
+            estimatedRemaining = `~${days}d ${remainingHours}h remaining`
+        } else if (hours > 0) {
+            estimatedRemaining = `~${hours}h ${mins}m remaining`
+        } else {
+            estimatedRemaining = `~${mins}m remaining`
+        }
+    }
+
     // Parse config to decide which tabs to show
     let config = {}
     try {
@@ -239,7 +260,12 @@ export default function CampaignDetailsPage() {
                 <div className="card mb-8">
                     <div className="flex justify-between mb-2">
                         <h3 className="font-semibold">Overall Progress ({completedTasks}/{totalTasks} tasks)</h3>
-                        <span className="text-sm text-gray-400">{progress.toFixed(1)}%</span>
+                        <div className="flex gap-4 items-center">
+                            {estimatedRemaining && (
+                                <span className="text-sm text-yellow-400">⏱️ {estimatedRemaining}</span>
+                            )}
+                            <span className="text-sm text-gray-400">{progress.toFixed(1)}%</span>
+                        </div>
                     </div>
                     <div className="progress-bar">
                         <div className="progress-fill" style={{ width: `${progress}%` }}></div>

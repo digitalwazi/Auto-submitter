@@ -50,37 +50,62 @@ export async function POST(request) {
                 }
             })
 
-            // 2. Create Domains & Queue Tasks
-            // We do this in batches to avoid locking the DB with massive inserts
-            const batchSize = 50
+            // 2. Create Domains in Batches
+            // Using larger batches and createMany for massive performance improvement
+            // This can handle 100,000+ domains efficiently
+            const batchSize = 500 // Increased from 50 to 500 for large campaigns
             let processed = 0
 
             for (let i = 0; i < domains.length; i += batchSize) {
                 const batch = domains.slice(i, i + batchSize)
 
-                await prisma.$transaction(async (tx) => {
-                    for (const url of batch) {
-                        // Create Domain with PENDING status
-                        // The new domain-processor will pick up domains directly by status
-                        await tx.domain.create({
-                            data: {
-                                campaignId: campaign.id,
-                                url: url,
-                                status: 'PENDING',
-                            }
-                        })
-                        // NOTE: No ProcessingQueue task needed - domain-processor handles it
-                    }
+                // Use createMany for bulk insert performance
+                await prisma.domain.createMany({
+                    data: batch.map(url => ({
+                        campaignId: campaign.id,
+                        url: url,
+                        status: 'PENDING',
+                    })),
+                    skipDuplicates: true, // Skip any duplicate URLs
                 })
 
                 processed += batch.length
+
+                // Log progress for very large uploads
+                if (domains.length > 1000 && processed % 5000 === 0) {
+                    console.log(`📦 Created ${processed}/${domains.length} domains...`)
+                }
             }
+
+            // Calculate Estimated Time
+            // Average time per domain: ~1-2 minutes (analysis + crawl + optional submission)
+            // With BATCH_SIZE=5 parallel processing
+            const parallelWorkers = 5
+            const avgMinutesPerDomain = 1.5
+            const totalMinutes = Math.ceil((domains.length / parallelWorkers) * avgMinutesPerDomain)
+            const hours = Math.floor(totalMinutes / 60)
+            const minutes = totalMinutes % 60
+
+            let estimatedTime = ''
+            if (hours > 24) {
+                const days = Math.floor(hours / 24)
+                const remainingHours = hours % 24
+                estimatedTime = `~${days} days ${remainingHours} hours`
+            } else if (hours > 0) {
+                estimatedTime = `~${hours} hours ${minutes} minutes`
+            } else {
+                estimatedTime = `~${minutes} minutes`
+            }
+
+            console.log(`📊 Campaign ${campaign.id} created: ${domains.length} domains, ETA: ${estimatedTime}`)
 
             return NextResponse.json({
                 success: true,
                 message: `Campaign started! ${domains.length} domains queued in background.`,
                 campaignId: campaign.id,
-                totalDomains: domains.length
+                totalDomains: domains.length,
+                estimatedTime: estimatedTime,
+                estimatedMinutes: totalMinutes
             })
 
         } catch (error) {
