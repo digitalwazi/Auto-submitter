@@ -53,7 +53,9 @@ export async function POST(request) {
             // 2. Create Domains in Batches
             // Using larger batches and createMany for massive performance improvement
             // This can handle 100,000+ domains efficiently
-            const batchSize = 500 // Increased from 50 to 500 for large campaigns
+            // BATCH SIZE NOTE: SQLite has a variable limit. 500 * 3 fields = 1500 vars.
+            // Safe limit is usually around 999 for older SQLite, but we'll stick to 200 to be ultra-safe.
+            const batchSize = 200 // Reduced from 500 to 200 to avoid SQLite parameter limits
             let processed = 0
 
             for (let i = 0; i < domains.length; i += batchSize) {
@@ -111,7 +113,7 @@ export async function POST(request) {
         } catch (error) {
             console.error('Background Enqueue Error:', error)
             return NextResponse.json(
-                { success: false, error: error.message },
+                { success: false, error: `Server Error: ${error.message}` },
                 { status: 500 }
             )
         }
