@@ -50,36 +50,7 @@ export async function POST(request) {
                 }
             })
 
-            // 2. Create Domains in Batches
-            // Using larger batches and createMany for massive performance improvement
-            // This can handle 100,000+ domains efficiently
-            // BATCH SIZE NOTE: SQLite has a variable limit. 500 * 3 fields = 1500 vars.
-            // Safe limit is usually around 999 for older SQLite, but we'll stick to 200 to be ultra-safe.
-            const batchSize = 200 // Reduced from 500 to 200 to avoid SQLite parameter limits
-            let processed = 0
-
-            for (let i = 0; i < domains.length; i += batchSize) {
-                const batch = domains.slice(i, i + batchSize)
-
-                // Use createMany for bulk insert performance
-                await prisma.domain.createMany({
-                    data: batch.map(url => ({
-                        campaignId: campaign.id,
-                        url: url,
-                        status: 'PENDING',
-                    })),
-                    // Note: skipDuplicates not supported in SQLite
-                })
-
-                processed += batch.length
-
-                // Log progress for very large uploads
-                if (domains.length > 1000 && processed % 5000 === 0) {
-                    console.log(`📦 Created ${processed}/${domains.length} domains...`)
-                }
-            }
-
-            // Calculate Estimated Time
+            // 2. Calculate Estimated Time (Moved up for immediate response)
             // Average time per domain: ~1-2 minutes (analysis + crawl + optional submission)
             // With BATCH_SIZE=5 parallel processing
             const parallelWorkers = 5
@@ -99,16 +70,53 @@ export async function POST(request) {
                 estimatedTime = `~${minutes} minutes`
             }
 
-            console.log(`📊 Campaign ${campaign.id} created: ${domains.length} domains, ETA: ${estimatedTime}`)
+            // 3. Create Domains in Batches (FIRE AND FORGET)
+            // We run this asynchronously so the UI gets a response immediately
+            // This prevents timezone/server timeouts on large files (10k+ domains)
+            (async () => {
+                try {
+                    // BATCH SIZE NOTE: SQLite has a variable limit. 500 * 3 fields = 1500 vars.
+                    // Safe limit is usually around 999 for older SQLite, but we'll stick to 200 to be ultra-safe.
+                    const batchSize = 200 // Reduced from 500 to 200 to avoid SQLite parameter limits
+                    let processed = 0
 
+                    console.log(`🚀 Starting background insertion of ${domains.length} domains for campaign ${campaign.id}`)
+
+                    for (let i = 0; i < domains.length; i += batchSize) {
+                        const batch = domains.slice(i, i + batchSize)
+
+                        // Use createMany for bulk insert performance
+                        await prisma.domain.createMany({
+                            data: batch.map(url => ({
+                                campaignId: campaign.id,
+                                url: url,
+                                status: 'PENDING',
+                            })),
+                            // Note: skipDuplicates not supported in SQLite
+                        })
+
+                        processed += batch.length
+
+                        // Log progress for very large uploads
+                        if (domains.length > 1000 && processed % 5000 === 0) {
+                            console.log(`📦 Created ${processed}/${domains.length} domains...`)
+                        }
+                    }
+                    console.log(`✅ Finished inserting ${processed} domains for campaign ${campaign.id}`)
+                } catch (err) {
+                    console.error('❌ Background Domain Insertion Failed:', err)
+                }
+            })()
+
+            // Return success immediately
             return NextResponse.json({
                 success: true,
-                message: `Campaign started! ${domains.length} domains queued in background.`,
+                message: `Started background processing for ${domains.length} domains.`,
                 campaignId: campaign.id,
-                totalDomains: domains.length,
-                estimatedTime: estimatedTime,
-                estimatedMinutes: totalMinutes
+                estimatedTime: estimatedTime
             })
+
+
 
         } catch (error) {
             console.error('Background Enqueue Error:', error)
