@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 // Get all campaigns
 export async function GET() {
@@ -22,7 +23,7 @@ export async function GET() {
 
         return NextResponse.json({ campaigns })
     } catch (error) {
-        console.error('Error fetching campaigns:', error)
+        console.error('❌ Error fetching campaigns:', error)
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 }
