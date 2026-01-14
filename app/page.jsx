@@ -101,15 +101,8 @@ export default function HomePage() {
                                 🗑️ Reset System
                             </button>
 
-                            <button
-                                onClick={handleManualProcess}
-                                className="btn-secondary"
-                            >
-                                🚀 Manual Process
-                            </button>
-
-                            <Link href="/campaigns/create" className="btn-primary">
-                                ✨ New Campaign
+                            <Link href="/test" className="btn-primary flex items-center gap-2">
+                                🚀 New Campaign (Advanced)
                             </Link>
                         </div>
                     </div>
