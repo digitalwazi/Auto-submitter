@@ -56,10 +56,13 @@ export default function CampaignDetailsPage() {
         }
     }
 
-    // Fetch terminal-style logs
+    // Fetch terminal-style logs (only logs AFTER page was opened)
+    const [terminalStartTime] = useState(() => new Date().toISOString())
+
     const fetchTerminalLogs = async () => {
         try {
-            const res = await fetch(`/api/campaigns/${params.id}/logs?limit=200`)
+            // Only fetch logs that happened AFTER we opened this page
+            const res = await fetch(`/api/campaigns/${params.id}/logs?limit=200&after=${encodeURIComponent(terminalStartTime)}`)
             const data = await res.json()
             if (data.success && data.logs) {
                 setTerminalLogs(data.logs)
@@ -78,7 +81,7 @@ export default function CampaignDetailsPage() {
             fetchTerminalLogs()
         }
 
-        // Auto-refresh every 3 seconds for live updates
+        // Auto-refresh every 2 seconds for live updates (faster for terminal)
         const interval = setInterval(() => {
             fetchCampaign()
             if (['domains', 'pages', 'contacts', 'submissions'].includes(activeTab)) {
@@ -87,7 +90,7 @@ export default function CampaignDetailsPage() {
             if (activeTab === 'terminal') {
                 fetchTerminalLogs()
             }
-        }, 3000)
+        }, 2000)
 
         return () => clearInterval(interval)
     }, [params.id, activeTab])
@@ -327,9 +330,12 @@ export default function CampaignDetailsPage() {
                     {activeTab === 'terminal' && (
                         <div className="card">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold">🖥️ Live Terminal Logs</h3>
+                                <div>
+                                    <h3 className="text-lg font-bold">🖥️ Live Terminal Logs</h3>
+                                    <p className="text-xs text-gray-500">Showing only new activity since you opened this page</p>
+                                </div>
                                 <div className="flex items-center gap-3">
-                                    <span className="text-xs text-gray-400">Auto-refreshing every 3s</span>
+                                    <span className="text-xs text-gray-400">Refreshing every 2s</span>
                                     <span className={`w-2 h-2 rounded-full ${campaign.status === 'RUNNING' ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
                                 </div>
                             </div>
@@ -343,8 +349,9 @@ export default function CampaignDetailsPage() {
                             >
                                 {terminalLogs.length === 0 ? (
                                     <div className="text-gray-500 text-center py-8">
-                                        <p>No logs yet...</p>
-                                        <p className="text-xs mt-2">Logs will appear here when the worker starts processing.</p>
+                                        <p className="text-lg mb-2">⏳ Waiting for live activity...</p>
+                                        <p className="text-xs">New logs will appear here in real-time as the worker processes domains.</p>
+                                        <p className="text-xs mt-1">(This view shows only LIVE activity, not history)</p>
                                     </div>
                                 ) : (
                                     terminalLogs.map((log, index) => {

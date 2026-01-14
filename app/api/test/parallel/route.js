@@ -66,7 +66,7 @@ export async function POST(request) {
                         url: url,
                         status: 'PENDING',
                     })),
-                    skipDuplicates: true, // Skip any duplicate URLs
+                    // Note: skipDuplicates not supported in SQLite
                 })
 
                 processed += batch.length
