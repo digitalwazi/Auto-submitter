@@ -97,6 +97,9 @@ export async function POST(request) {
 
                         processed += batch.length
 
+                        // Yield DB lock to let workers process concurrently
+                        await new Promise(resolve => setTimeout(resolve, 100))
+
                         // Log progress for very large uploads
                         if (domains.length > 1000 && processed % 5000 === 0) {
                             console.log(`📦 Created ${processed}/${domains.length} domains...`)
