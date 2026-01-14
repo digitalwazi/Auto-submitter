@@ -19,7 +19,18 @@ module.exports = {
             autorestart: true,
             watch: false,
             max_memory_restart: "1G",
-            cron_restart: "0 */4 * * *",  // Restart every 4 hours (reduced freq)
+            cron_restart: "0 */4 * * *",  // Restart every 4 hours
+            env: {
+                NODE_ENV: "production"
+            }
+        },
+        {
+            name: "watchdog",
+            script: "watchdog.mjs",
+            instances: 1,
+            exec_mode: "fork",
+            autorestart: true,
+            watch: false,
             env: {
                 NODE_ENV: "production"
             }
