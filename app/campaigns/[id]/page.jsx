@@ -11,6 +11,8 @@ export default function CampaignDetailsPage() {
     const [logs, setLogs] = useState([])
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState('overview')
+    const [domainPage, setDomainPage] = useState(1)
+    const ITEMS_PER_PAGE = 100
 
     const [errorMsg, setErrorMsg] = useState(null)
     const [detailsLoaded, setDetailsLoaded] = useState(false)
@@ -384,25 +386,70 @@ export default function CampaignDetailsPage() {
                     {activeTab === 'domains' && (
                         <div className="card">
                             <h3 className="text-lg font-bold mb-4">Domains ({campaign.domains?.length || 0})</h3>
-                            <div className="space-y-3">
-                                {campaign.domains?.map(domain => (
-                                    <div key={domain.id} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
-                                        <div>
-                                            <p className="font-medium">{domain.url}</p>
-                                            <p className="text-xs text-gray-500">
-                                                {domain.pagesDiscovered} pages • {domain.sitemapsFound} sitemaps
-                                            </p>
-                                        </div>
-                                        <span className={`text-sm px-3 py-1 rounded-full ${domain.status === 'COMPLETED' ? 'bg-green-900/30 text-green-400' :
-                                            domain.status === 'PROCESSING' ? 'bg-blue-900/30 text-blue-400' :
-                                                domain.status === 'FAILED' ? 'bg-red-900/30 text-red-400' :
-                                                    'bg-gray-700 text-gray-400'
-                                            }`}>
-                                            {domain.status}
-                                        </span>
-                                    </div>
-                                )) || <p className="text-gray-500 text-center py-8">No domains yet</p>}
+
+                            {/* Pagination Toggle */}
+                            <div className="mb-4 flex items-center justify-between text-sm">
+                                <span className="text-gray-400">Showing page {domainPage} of {Math.ceil((campaign.domains?.length || 0) / ITEMS_PER_PAGE)}</span>
+                                <div className="flex gap-2">
+                                    <button
+                                        disabled={domainPage === 1}
+                                        onClick={() => setDomainPage(p => Math.max(1, p - 1))}
+                                        className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600 disabled:opacity-50"
+                                    >
+                                        Previous
+                                    </button>
+                                    <button
+                                        disabled={domainPage >= Math.ceil((campaign.domains?.length || 0) / ITEMS_PER_PAGE)}
+                                        onClick={() => setDomainPage(p => p + 1)}
+                                        className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600 disabled:opacity-50"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
                             </div>
+
+                            <div className="space-y-3">
+                                {campaign.domains
+                                    ?.slice((domainPage - 1) * ITEMS_PER_PAGE, domainPage * ITEMS_PER_PAGE)
+                                    .map(domain => (
+                                        <div key={domain.id} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
+                                            <div>
+                                                <p className="font-medium">{domain.url}</p>
+                                                <p className="text-xs text-gray-500">
+                                                    {domain.pagesDiscovered} pages • {domain.sitemapsFound} sitemaps
+                                                </p>
+                                            </div>
+                                            <span className={`text-sm px-3 py-1 rounded-full ${domain.status === 'COMPLETED' ? 'bg-green-900/30 text-green-400' :
+                                                domain.status === 'PROCESSING' ? 'bg-blue-900/30 text-blue-400' :
+                                                    domain.status === 'FAILED' ? 'bg-red-900/30 text-red-400' :
+                                                        'bg-gray-700 text-gray-400'
+                                                }`}>
+                                                {domain.status}
+                                            </span>
+                                        </div>
+                                    )) || <p className="text-gray-500 text-center py-8">No domains yet</p>}
+                            </div>
+
+                            {/* Bottom Pagination */}
+                            {campaign.domains?.length > ITEMS_PER_PAGE && (
+                                <div className="mt-4 flex justify-center gap-2">
+                                    <button
+                                        disabled={domainPage === 1}
+                                        onClick={() => setDomainPage(p => Math.max(1, p - 1))}
+                                        className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 disabled:opacity-50"
+                                    >
+                                        Previous
+                                    </button>
+                                    <span className="px-4 py-2 text-gray-400">Page {domainPage}</span>
+                                    <button
+                                        disabled={domainPage >= Math.ceil((campaign.domains?.length || 0) / ITEMS_PER_PAGE)}
+                                        onClick={() => setDomainPage(p => p + 1)}
+                                        className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 disabled:opacity-50"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
