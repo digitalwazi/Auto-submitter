@@ -41,11 +41,12 @@ export default function EnhancedTestPage() {
         submitComments: false,
         senderName: 'Bundle WP',
         senderEmail: 'support@bundlewp.com',
+        campaignName: '', // Optional campaign name
         message: 'The Best Wordpress Plugin with 30+ Wordpress Modules and 30+ Woocommerce Modules With 30 Days Money Back Gurantee. Cost Only 9$ - Limited Period Offer.\n\nPurchase Link - https://doffl.com/go/Aqjr6V\n\nFree 50+ HTML Templates and 150+ Blocks Completely',
 
         // === NEW FEATURES ===
         // Screenshots
-        enableScreenshots: false,
+        enableScreenshots: true,
 
         // Message Templates
         messageTemplate: 'custom',  // 'custom', 'professional', 'quick', 'business', 'feedback', 'newsletter'
@@ -738,6 +739,13 @@ export default function EnhancedTestPage() {
                             </label>
                         </div>
                         <div className="grid grid-cols-3 gap-4">
+                            <input
+                                type="text"
+                                placeholder="Campaign Name (Optional)"
+                                value={config.campaignName}
+                                onChange={(e) => setConfig({ ...config, campaignName: e.target.value })}
+                                className="input"
+                            />
                             <input
                                 type="text"
                                 placeholder="Your Name"

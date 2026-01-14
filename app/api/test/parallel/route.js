@@ -36,7 +36,7 @@ export async function POST(request) {
             // 1. Create Campaign
             const campaign = await prisma.campaign.create({
                 data: {
-                    name: `Background Test - ${new Date().toLocaleString()}`,
+                    name: config.campaignName?.trim() || `Campaign ${new Date().toLocaleString()}`,
                     status: 'RUNNING',
                     processingMode: 'BACKGROUND',
                     maxPagesPerDomain: config.maxPages || 20,
