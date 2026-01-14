@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { APP_VERSION } from '@/lib/version'
+
 export default function EnhancedTestPage() {
     const [file, setFile] = useState(null)
     const [running, setRunning] = useState(false)
@@ -232,8 +234,9 @@ export default function EnhancedTestPage() {
     return (
         <div className="min-h-screen p-8">
             <div className="max-w-7xl mx-auto">
-                <h1 className="text-4xl font-bold gradient-text mb-2">
+                <h1 className="text-4xl font-bold gradient-text mb-2 flex items-center gap-3">
                     🚀 Advanced Domain Processor
+                    <span className="text-sm bg-purple-500/20 text-purple-400 px-3 py-1 rounded-full border border-purple-500/30">v{APP_VERSION}</span>
                 </h1>
                 <p className="text-gray-400 mb-8">
                     Parallel processing • Smart crawling • Anti-detection
@@ -311,7 +314,27 @@ export default function EnhancedTestPage() {
                 {/* Main Settings */}
                 <div className="grid grid-cols-2 gap-6 mb-6">
                     <div className="card">
-                        <h2 className="text-xl font-bold mb-4">🎯 Extraction</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold">🎯 Extraction</h2>
+                            <button
+                                onClick={() => {
+                                    const allEnabled = config.extractForms && config.extractComments && config.extractEmails && config.extractPhones && config.detectTechnology
+                                    setConfig({
+                                        ...config,
+                                        extractForms: !allEnabled,
+                                        extractComments: !allEnabled,
+                                        extractEmails: !allEnabled,
+                                        extractPhones: !allEnabled,
+                                        detectTechnology: !allEnabled
+                                    })
+                                }}
+                                className="text-xs bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded"
+                            >
+                                {config.extractForms && config.extractComments && config.extractEmails && config.extractPhones && config.detectTechnology
+                                    ? 'Disable All'
+                                    : 'Enable All'}
+                            </button>
+                        </div>
                         <div className="space-y-2">
                             <label className="flex items-center gap-2">
                                 <input
