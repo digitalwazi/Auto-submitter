@@ -27,7 +27,7 @@ module.exports = {
         {
             name: "direct-submit-worker",
             script: "workers/direct-submit-worker.js",
-            instances: 2,  // 2 instances for direct submit
+            instances: 1,  // Single instance to prevent duplicate submissions
             exec_mode: "cluster",
             autorestart: true,
             watch: false,

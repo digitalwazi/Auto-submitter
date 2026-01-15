@@ -19,7 +19,7 @@ import { submitForm } from '../lib/automation/form-submitter.js'
 import { submitComment } from '../lib/automation/comment-submitter.js'
 
 const POLL_INTERVAL = 2000 // Check every 2 seconds
-const BATCH_SIZE = 4 // Process 4 URLs in parallel
+const BATCH_SIZE = 1 // Process 1 URL at a time to prevent duplicates
 const MAX_RETRIES = 1 // Retry once on failure
 
 console.log('🚀 Direct Submit Worker Started')
@@ -118,16 +118,15 @@ function shouldRetry(message) {
 async function processNextPage() {
     try {
         // Find a pending page from a DIRECT_SUBMIT campaign
+        // Only look for pages with title='Direct Submit' (not yet claimed)
         const page = await prisma.pageDiscovery.findFirst({
             where: {
                 campaign: {
                     processingMode: 'DIRECT_SUBMIT',
                     status: 'RUNNING'
                 },
-                // Pages that haven't been processed yet (no submission logs)
-                submissions: {
-                    none: {}
-                }
+                // Only pages that haven't been claimed yet
+                title: 'Direct Submit'
             },
             include: {
                 campaign: true
@@ -141,21 +140,20 @@ async function processNextPage() {
             return false // No pages to process
         }
 
-        // ATOMIC CLAIM: Immediately create a placeholder submission to prevent race conditions
-        // Other workers checking this page will see it has submissions and skip it
-        let claimRecord
-        try {
-            claimRecord = await prisma.submissionLog.create({
-                data: {
-                    campaignId: page.campaignId,
-                    pageId: page.id,
-                    type: 'CLAIM',
-                    status: 'PROCESSING',
-                    responseMessage: 'Claimed by worker',
-                }
-            })
-        } catch (e) {
-            // If we can't create the claim, another worker got it first
+        // ATOMIC CLAIM: Update the title to 'PROCESSING' only if it's still 'Direct Submit'
+        // This ensures only one worker can claim this page
+        const claimResult = await prisma.pageDiscovery.updateMany({
+            where: {
+                id: page.id,
+                title: 'Direct Submit' // Only claim if still unclaimed
+            },
+            data: {
+                title: 'PROCESSING'
+            }
+        })
+
+        // If no rows updated, another worker already claimed this page
+        if (claimResult.count === 0) {
             console.log(`⚠️ Page ${page.url} already claimed by another worker`)
             return true // Return true to keep processing other pages
         }
@@ -281,13 +279,6 @@ async function processNextPage() {
                 title: formSuccess || commentSuccess ? 'SUCCESS' : 'FAILED',
             }
         })
-
-        // Delete the claim record since we now have actual submission logs
-        if (claimRecord) {
-            await prisma.submissionLog.delete({
-                where: { id: claimRecord.id }
-            }).catch(() => { }) // Ignore errors
-        }
 
         // Update counters
         urlsProcessed++
