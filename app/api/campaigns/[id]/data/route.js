@@ -10,7 +10,13 @@ export async function GET(request, props) {
 
         // Fetch heavy data separately
         const domains = await prisma.domain.findMany({
-            where: { campaignId: id },
+            where: {
+                campaignId: id,
+                // Hide placeholder domains used for Direct Submit mode
+                NOT: {
+                    url: { startsWith: 'direct-submit://' }
+                }
+            },
             orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
             // Removed limit as per user request (was take: 1000)
         })
@@ -27,7 +33,11 @@ export async function GET(request, props) {
         })
 
         const submissions = await prisma.submissionLog.findMany({
-            where: { campaignId: id },
+            where: {
+                campaignId: id,
+                // Hide internal CLAIM records (used for worker coordination)
+                NOT: { type: 'CLAIM' }
+            },
             orderBy: { submittedAt: 'desc' },
             take: 1000
         })

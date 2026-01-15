@@ -141,6 +141,25 @@ async function processNextPage() {
             return false // No pages to process
         }
 
+        // ATOMIC CLAIM: Immediately create a placeholder submission to prevent race conditions
+        // Other workers checking this page will see it has submissions and skip it
+        let claimRecord
+        try {
+            claimRecord = await prisma.submissionLog.create({
+                data: {
+                    campaignId: page.campaignId,
+                    pageId: page.id,
+                    type: 'CLAIM',
+                    status: 'PROCESSING',
+                    responseMessage: 'Claimed by worker',
+                }
+            })
+        } catch (e) {
+            // If we can't create the claim, another worker got it first
+            console.log(`⚠️ Page ${page.url} already claimed by another worker`)
+            return true // Return true to keep processing other pages
+        }
+
         const campaign = page.campaign
         const url = page.url
 
@@ -262,6 +281,13 @@ async function processNextPage() {
                 title: formSuccess || commentSuccess ? 'SUCCESS' : 'FAILED',
             }
         })
+
+        // Delete the claim record since we now have actual submission logs
+        if (claimRecord) {
+            await prisma.submissionLog.delete({
+                where: { id: claimRecord.id }
+            }).catch(() => { }) // Ignore errors
+        }
 
         // Update counters
         urlsProcessed++

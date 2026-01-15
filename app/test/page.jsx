@@ -799,9 +799,11 @@ export default function EnhancedTestPage() {
                         </div>
                     )}
                 </div>
-                {config.mode === 'submit' && (
+                {(config.mode === 'submit' || config.mode === 'direct') && (
                     <div className="card mb-6">
-                        <h2 className="text-xl font-bold mb-4">🚀 Auto-Submit Settings</h2>
+                        <h2 className="text-xl font-bold mb-4">
+                            {config.mode === 'direct' ? '⚡ Direct Submit Settings' : '🚀 Auto-Submit Settings'}
+                        </h2>
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <label className="flex items-center gap-2">
                                 <input
@@ -820,34 +822,46 @@ export default function EnhancedTestPage() {
                                 <span>Submit Comments</span>
                             </label>
                         </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <input
-                                type="text"
-                                placeholder="Campaign Name (Optional)"
-                                value={config.campaignName}
-                                onChange={(e) => setConfig({ ...config, campaignName: e.target.value })}
-                                className="input"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Your Name"
-                                value={config.senderName}
-                                onChange={(e) => setConfig({ ...config, senderName: e.target.value })}
-                                className="input"
-                            />
-                            <input
-                                type="email"
-                                placeholder="Your Email"
-                                value={config.senderEmail}
-                                onChange={(e) => setConfig({ ...config, senderEmail: e.target.value })}
-                                className="input"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Message"
+                        <div className="grid grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label className="text-xs text-gray-400 mb-1 block">Campaign Name</label>
+                                <input
+                                    type="text"
+                                    placeholder="Optional"
+                                    value={config.campaignName}
+                                    onChange={(e) => setConfig({ ...config, campaignName: e.target.value })}
+                                    className="input w-full"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-400 mb-1 block">Your Name *</label>
+                                <input
+                                    type="text"
+                                    placeholder="John Doe"
+                                    value={config.senderName}
+                                    onChange={(e) => setConfig({ ...config, senderName: e.target.value })}
+                                    className="input w-full"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-400 mb-1 block">Your Email *</label>
+                                <input
+                                    type="email"
+                                    placeholder="you@example.com"
+                                    value={config.senderEmail}
+                                    onChange={(e) => setConfig({ ...config, senderEmail: e.target.value })}
+                                    className="input w-full"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs text-gray-400 mb-1 block">Message / Comment *</label>
+                            <textarea
+                                placeholder="Enter your message here..."
                                 value={config.message}
                                 onChange={(e) => setConfig({ ...config, message: e.target.value })}
-                                className="input"
+                                className="input w-full h-24"
+                                rows={3}
                             />
                         </div>
                     </div>
