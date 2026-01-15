@@ -25,6 +25,18 @@ module.exports = {
             }
         },
         {
+            name: "direct-submit-worker",
+            script: "workers/direct-submit-worker.js",
+            instances: 2,  // 2 instances for direct submit
+            exec_mode: "cluster",
+            autorestart: true,
+            watch: false,
+            max_memory_restart: "1G",
+            env: {
+                NODE_ENV: "production"
+            }
+        },
+        {
             name: "watchdog",
             script: "watchdog.mjs",
             instances: 1,
@@ -37,3 +49,4 @@ module.exports = {
         }
     ]
 }
+

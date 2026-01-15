@@ -132,6 +132,41 @@ export default function EnhancedTestPage() {
         setScreenshotPaths([])
 
         try {
+            // Direct Submit Mode - use different endpoint
+            if (config.mode === 'direct') {
+                addLog('⚡ Starting Direct Submit mode...', 'success')
+                addLog('📤 Uploading URLs for direct submission (no crawling)...', 'info')
+
+                const formData = new FormData()
+                formData.append('file', fileToUpload)
+                formData.append('config', JSON.stringify(config))
+
+                const response = await fetch('/api/test/direct-submit', {
+                    method: 'POST',
+                    body: formData,
+                })
+
+                const data = await response.json()
+
+                if (data.success) {
+                    addLog(`✅ ${data.message}`, 'success')
+                    addLog(`📊 Total URLs: ${data.urlCount}`, 'info')
+                    if (data.estimatedTime) {
+                        addLog(`⏱️ Estimated completion time: ${data.estimatedTime}`, 'info')
+                    }
+                    addLog('🔄 Redirecting to campaign dashboard...', 'info')
+
+                    setTimeout(() => {
+                        router.push(`/campaigns/${data.campaignId}`)
+                    }, 2000)
+                } else {
+                    addLog(`❌ Error: ${data.message}`, 'error')
+                }
+                setRunning(false)
+                return
+            }
+
+            // Regular mode - crawl then submit
             addLog('🚀 Starting domain processing...', 'success')
 
             const formData = new FormData()
@@ -318,7 +353,7 @@ export default function EnhancedTestPage() {
                 {/* Mode Selection */}
                 <div className="card mb-6">
                     <h2 className="text-xl font-bold mb-4">🎯 Mode</h2>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                         <button
                             onClick={() => setConfig({ ...config, mode: 'extract', submitForms: false, submitComments: false })}
                             className={`px-6 py-4 rounded-lg font-semibold text-left ${config.mode === 'extract'
@@ -339,13 +374,31 @@ export default function EnhancedTestPage() {
                             <div className="text-lg mb-1">🚀 Extract + Submit</div>
                             <div className="text-sm opacity-80">Find and automatically submit with Playwright</div>
                         </button>
+                        <button
+                            onClick={() => setConfig({ ...config, mode: 'direct', submitForms: true, submitComments: true })}
+                            className={`px-6 py-4 rounded-lg font-semibold text-left ${config.mode === 'direct'
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                }`}
+                        >
+                            <div className="text-lg mb-1">⚡ Direct Submit</div>
+                            <div className="text-sm opacity-80">Submit to exact URLs (No crawling - Fastest!)</div>
+                        </button>
                     </div>
+                    {config.mode === 'direct' && (
+                        <div className="mt-4 p-4 bg-green-900/30 border border-green-500/30 rounded-lg">
+                            <p className="text-green-300 text-sm">
+                                <strong>⚡ Direct Submit Mode:</strong> Paste exact page URLs (not domains). The system will directly attempt form/comment submission on each URL without crawling. Best for bulk submissions to known pages.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Domain Source */}
                 <div className="card mb-6 border-2 border-indigo-500/30">
                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                        <span className="text-indigo-400">📂</span> Domain Source
+                        <span className="text-indigo-400">{config.mode === 'direct' ? '🔗' : '📂'}</span>
+                        {config.mode === 'direct' ? 'Page URLs (Exact Links)' : 'Domain Source'}
                     </h2>
 
                     {/* Input Mode Toggle */}
