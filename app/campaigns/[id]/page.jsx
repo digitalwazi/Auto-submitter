@@ -99,17 +99,46 @@ export default function CampaignDetailsPage() {
 
     const handleExport = async () => {
         try {
-            const response = await fetch(`/api/export/${params.id}`)
+            // Use AbortController with 5-minute timeout for large exports
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes
+
+            const response = await fetch(`/api/export/${params.id}`, {
+                signal: controller.signal
+            })
+            clearTimeout(timeoutId)
+
+            // Check if response is an error
+            if (!response.ok) {
+                const contentType = response.headers.get('content-type')
+                if (contentType && contentType.includes('application/json')) {
+                    const errorData = await response.json()
+                    throw new Error(errorData.error || `Export failed with status ${response.status}`)
+                }
+                throw new Error(`Export failed with status ${response.status}`)
+            }
+
             const blob = await response.blob()
+
+            // Verify we got an actual file
+            if (blob.size === 0) {
+                throw new Error('Export returned empty file')
+            }
 
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
             a.download = `campaign-${params.id}.xlsx`
+            document.body.appendChild(a)
             a.click()
+            document.body.removeChild(a)
             window.URL.revokeObjectURL(url)
         } catch (error) {
-            alert(`Export failed: ${error.message}`)
+            if (error.name === 'AbortError') {
+                alert('Export timed out. The campaign may be too large. Try again or contact support.')
+            } else {
+                alert(`Export failed: ${error.message}`)
+            }
         }
     }
 
