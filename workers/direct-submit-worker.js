@@ -19,7 +19,7 @@ import { submitForm } from '../lib/automation/form-submitter.js'
 import { submitComment } from '../lib/automation/comment-submitter.js'
 
 const POLL_INTERVAL = 2000 // Check every 2 seconds
-const BATCH_SIZE = 1 // Process 1 URL at a time to prevent duplicates
+const BATCH_SIZE = 5 // Process 5 URLs in parallel (Atomic claim prevents duplicates)
 const MAX_RETRIES = 1 // Retry once on failure
 
 console.log('🚀 Direct Submit Worker Started')
@@ -190,6 +190,7 @@ async function processNextPage() {
                         screenshots: config.saveScreenshots !== false,
                         skipDuplicates: false, // ALWAYS allow re-submission in Direct Submit mode
                         campaignId: campaign.id,
+                        behaviorProfile: 'aggressive'
                     }
                 )
 
