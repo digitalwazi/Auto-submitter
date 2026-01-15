@@ -174,12 +174,13 @@ async function processNextPage() {
         let formMessage = ''
         let commentMessage = ''
 
-        // Try form submission if enabled (with retry)
+        // Try form submission if enabled
         if (campaign.submitForms) {
             try {
                 console.log(`   📝 Attempting form submission...`)
-                const result = await submitFormWithRetry(
+                const result = await submitForm(
                     url,
+                    null, // Auto-detect form
                     {
                         name: campaign.senderName || 'Anonymous',
                         email: campaign.senderEmail || 'contact@example.com',
@@ -187,7 +188,7 @@ async function processNextPage() {
                     },
                     {
                         screenshots: config.saveScreenshots !== false,
-                        skipDuplicates: config.skipDuplicates !== false,
+                        skipDuplicates: false, // ALWAYS allow re-submission in Direct Submit mode
                         campaignId: campaign.id,
                     }
                 )
@@ -225,12 +226,13 @@ async function processNextPage() {
             }
         }
 
-        // Try comment submission if enabled (with retry)
+        // Try comment submission if enabled
         if (campaign.submitComments) {
             try {
                 console.log(`   💬 Attempting comment submission...`)
-                const result = await submitCommentWithRetry(
+                const result = await submitComment(
                     url,
+                    null, // Auto-detect comment form
                     {
                         name: campaign.senderName || 'Anonymous',
                         email: campaign.senderEmail || 'contact@example.com',
