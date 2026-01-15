@@ -6,6 +6,11 @@
  * Processes PageDiscovery entries from DIRECT_SUBMIT campaigns
  * WITHOUT crawling - just directly attempts form/comment submission.
  * 
+ * Features:
+ * - Auto-retry on failure (1 retry)
+ * - Parallel processing (configurable batch size)
+ * - Works in background even when laptop is closed
+ * 
  * Much faster than domain processing.
  */
 
@@ -15,15 +20,100 @@ import { submitComment } from '../lib/automation/comment-submitter.js'
 
 const POLL_INTERVAL = 2000 // Check every 2 seconds
 const BATCH_SIZE = 4 // Process 4 URLs in parallel
+const MAX_RETRIES = 1 // Retry once on failure
 
 console.log('🚀 Direct Submit Worker Started')
 console.log(`⚙️  Poll Interval: ${POLL_INTERVAL}ms`)
 console.log(`⚙️  Batch Size: ${BATCH_SIZE} parallel URLs`)
+console.log(`⚙️  Max Retries: ${MAX_RETRIES}`)
 console.log('---')
 
 let urlsProcessed = 0
 let successCount = 0
 let failCount = 0
+let retryCount = 0
+
+/**
+ * Retry wrapper - attempts an async function with retries
+ */
+async function withRetry(fn, maxRetries = MAX_RETRIES, delay = 2000) {
+    let lastError = null
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            const result = await fn()
+            return result
+        } catch (error) {
+            lastError = error
+
+            if (attempt < maxRetries) {
+                console.log(`   ⏳ Attempt ${attempt + 1} failed, retrying in ${delay}ms...`)
+                retryCount++
+                await new Promise(r => setTimeout(r, delay))
+            }
+        }
+    }
+
+    throw lastError
+}
+
+/**
+ * Submit form with retry logic
+ */
+async function submitFormWithRetry(url, data, options) {
+    return withRetry(async () => {
+        const result = await submitForm(url, null, data, options)
+
+        // If result indicates a transient error, throw to trigger retry
+        if (!result.success && shouldRetry(result.message)) {
+            throw new Error(result.message)
+        }
+
+        return result
+    })
+}
+
+/**
+ * Submit comment with retry logic
+ */
+async function submitCommentWithRetry(url, data) {
+    return withRetry(async () => {
+        const result = await submitComment(url, null, data)
+
+        // If result indicates a transient error, throw to trigger retry
+        if (!result.success && shouldRetry(result.message)) {
+            throw new Error(result.message)
+        }
+
+        return result
+    })
+}
+
+/**
+ * Check if an error message indicates we should retry
+ */
+function shouldRetry(message) {
+    if (!message) return false
+    const msg = message.toLowerCase()
+
+    const retryableErrors = [
+        'timeout',
+        'network',
+        'connection',
+        'econnreset',
+        'econnrefused',
+        'socket',
+        'navigation failed',
+        'page crashed',
+        'target closed',
+        'context destroyed',
+        'browser has been closed',
+        'no response received',
+        'net::err',
+    ]
+
+    return retryableErrors.some(err => msg.includes(err))
+}
 
 async function processNextPage() {
     try {
@@ -67,13 +157,12 @@ async function processNextPage() {
         let formMessage = ''
         let commentMessage = ''
 
-        // Try form submission if enabled
+        // Try form submission if enabled (with retry)
         if (campaign.submitForms) {
             try {
                 console.log(`   📝 Attempting form submission...`)
-                const result = await submitForm(
+                const result = await submitFormWithRetry(
                     url,
-                    null, // Auto-detect form
                     {
                         name: campaign.senderName || 'Anonymous',
                         email: campaign.senderEmail || 'contact@example.com',
@@ -105,7 +194,7 @@ async function processNextPage() {
 
             } catch (error) {
                 formMessage = error.message
-                console.log(`   ❌ Form error: ${error.message}`)
+                console.log(`   ❌ Form error (after retries): ${error.message}`)
 
                 await prisma.submissionLog.create({
                     data: {
@@ -113,19 +202,18 @@ async function processNextPage() {
                         pageId: page.id,
                         type: 'FORM',
                         status: 'FAILED',
-                        responseMessage: error.message,
+                        responseMessage: `Failed after retries: ${error.message}`,
                     }
                 })
             }
         }
 
-        // Try comment submission if enabled
+        // Try comment submission if enabled (with retry)
         if (campaign.submitComments) {
             try {
                 console.log(`   💬 Attempting comment submission...`)
-                const result = await submitComment(
+                const result = await submitCommentWithRetry(
                     url,
-                    null, // Auto-detect comment form
                     {
                         name: campaign.senderName || 'Anonymous',
                         email: campaign.senderEmail || 'contact@example.com',
@@ -151,7 +239,7 @@ async function processNextPage() {
 
             } catch (error) {
                 commentMessage = error.message
-                console.log(`   ❌ Comment error: ${error.message}`)
+                console.log(`   ❌ Comment error (after retries): ${error.message}`)
 
                 await prisma.submissionLog.create({
                     data: {
@@ -159,7 +247,7 @@ async function processNextPage() {
                         pageId: page.id,
                         type: 'COMMENT',
                         status: 'FAILED',
-                        responseMessage: error.message,
+                        responseMessage: `Failed after retries: ${error.message}`,
                     }
                 })
             }
@@ -226,7 +314,7 @@ async function processNextBatch() {
     const noWork = results.filter(r => r.status === 'fulfilled' && r.value === false).length
 
     if (processed > 0) {
-        console.log(`\n✅ Batch: ${processed} URLs processed (Total: ${urlsProcessed}, Success: ${successCount}, Failed: ${failCount})`)
+        console.log(`\n✅ Batch: ${processed} URLs processed (Total: ${urlsProcessed}, Success: ${successCount}, Failed: ${failCount}, Retries: ${retryCount})`)
     }
 
     if (noWork === BATCH_SIZE) {
@@ -254,13 +342,13 @@ async function startWorker() {
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
     console.log('\n⏹️  SIGTERM received, shutting down...')
-    console.log(`📊 Final Stats: ${urlsProcessed} URLs, ${successCount} success, ${failCount} failed`)
+    console.log(`📊 Final Stats: ${urlsProcessed} URLs, ${successCount} success, ${failCount} failed, ${retryCount} retries`)
     process.exit(0)
 })
 
 process.on('SIGINT', () => {
     console.log('\n⏹️  SIGINT received, shutting down...')
-    console.log(`📊 Final Stats: ${urlsProcessed} URLs, ${successCount} success, ${failCount} failed`)
+    console.log(`📊 Final Stats: ${urlsProcessed} URLs, ${successCount} success, ${failCount} failed, ${retryCount} retries`)
     process.exit(0)
 })
 
