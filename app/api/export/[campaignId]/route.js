@@ -4,6 +4,22 @@ import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
 
+// Excel has a maximum cell character limit of 32767
+const EXCEL_MAX_CHARS = 32767
+
+/**
+ * Truncate text to fit within Excel's cell character limit
+ * @param {string} text - The text to truncate
+ * @param {number} maxLength - Maximum length (default: EXCEL_MAX_CHARS)
+ * @returns {string} - Truncated text
+ */
+function truncateText(text, maxLength = EXCEL_MAX_CHARS) {
+    if (!text || typeof text !== 'string') return text || ''
+    if (text.length <= maxLength) return text
+    // Leave room for truncation indicator
+    return text.substring(0, maxLength - 20) + '... [TRUNCATED]'
+}
+
 export async function GET(request, props) {
     const params = await props.params;
     try {
@@ -58,9 +74,9 @@ export async function GET(request, props) {
 
         campaign.domains.forEach(domain => {
             domainsData.push([
-                domain.url,
+                truncateText(domain.url),
                 domain.status,
-                domain.technology || 'Unknown',
+                truncateText(domain.technology || 'Unknown'),
                 domain.hasRobotsTxt ? 'Yes' : 'No',
                 domain.sitemapsFound,
                 domain.pagesDiscovered,
@@ -79,9 +95,9 @@ export async function GET(request, props) {
         campaign.domains.forEach(domain => {
             domain.pages.forEach(page => {
                 pagesData.push([
-                    domain.url,
-                    page.url,
-                    page.title,
+                    truncateText(domain.url),
+                    truncateText(page.url),
+                    truncateText(page.title),
                     page.hasForm ? 'Yes' : 'No',
                     page.hasComments ? 'Yes' : 'No',
                     page.submissions.length,
@@ -102,10 +118,10 @@ export async function GET(request, props) {
             if (domain.contacts && domain.contacts.length > 0) {
                 domain.contacts.forEach(contact => {
                     contactsData.push([
-                        domain.url,
-                        contact.email || '',
-                        contact.phone || '',
-                        contact.extractedFrom || domain.url,
+                        truncateText(domain.url),
+                        truncateText(contact.email || ''),
+                        truncateText(contact.phone || ''),
+                        truncateText(contact.extractedFrom || domain.url),
                     ])
                 })
             }
@@ -120,10 +136,10 @@ export async function GET(request, props) {
             )
             if (!exists) {
                 contactsData.push([
-                    domain?.url || '',
-                    contact.email || '',
-                    contact.phone || '',
-                    contact.extractedFrom,
+                    truncateText(domain?.url || ''),
+                    truncateText(contact.email || ''),
+                    truncateText(contact.phone || ''),
+                    truncateText(contact.extractedFrom),
                 ])
             }
         })
@@ -142,10 +158,10 @@ export async function GET(request, props) {
                 .find(p => p.id === submission.pageId)
 
             submissionsData.push([
-                page?.url || '',
+                truncateText(page?.url || ''),
                 submission.type,
                 submission.status,
-                submission.responseMessage || '',
+                truncateText(submission.responseMessage || ''),
                 submission.submittedAt.toISOString(),
             ])
         })
