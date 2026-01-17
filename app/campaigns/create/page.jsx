@@ -108,6 +108,26 @@ export default function CreateCampaignPage() {
                         />
                     </div>
 
+                    {/* Database Storage */}
+                    <div>
+                        <label className="block text-sm font-medium mb-2">
+                            Database Storage *
+                        </label>
+                        <select
+                            className="input"
+                            value={formData.storageType || 'SQLITE'}
+                            onChange={(e) => setFormData({ ...formData, storageType: e.target.value })}
+                        >
+                            <option value="SQLITE">SQLite (Local Server) - Fast, Free, Limited Scale</option>
+                            <option value="SUPABASE">Supabase (Cloud) - Scalable, Requires Config</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                            {formData.storageType === 'SUPABASE'
+                                ? '⚠️ Requires SUPABASE_URL in .env. Data is saved to cloud automatically.'
+                                : 'Data saved locally on this VPS. Best for smaller campaigns (<50k domains).'}
+                        </p>
+                    </div>
+
                     {/* Processing Mode */}
                     <div>
                         <label className="block text-sm font-medium mb-2">

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/db'
+import { prisma, prismaSupabase } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-// Get all campaigns
+// Get all campaigns from BOTH databases
 export async function GET() {
     try {
-        const campaigns = await prisma.campaign.findMany({
+        const fetchOptions = {
             orderBy: { createdAt: 'desc' },
             include: {
                 _count: {
@@ -19,7 +19,36 @@ export async function GET() {
                     },
                 },
             },
-        })
+        }
+
+        // Parallel fetch
+        const [localCampaigns, cloudResults] = await Promise.allSettled([
+            prisma.campaign.findMany(fetchOptions),
+            prismaSupabase.campaign.findMany(fetchOptions)
+        ])
+
+        const campaigns = []
+
+        // Process Local Results
+        if (localCampaigns.status === 'fulfilled') {
+            localCampaigns.value.forEach(c => {
+                campaigns.push({ ...c, storageType: 'SQLITE' })
+            })
+        } else {
+            console.error('❌ Failed to fetch local campaigns:', localCampaigns.reason)
+        }
+
+        // Process Cloud Results
+        if (cloudResults.status === 'fulfilled') {
+            cloudResults.value.forEach(c => {
+                campaigns.push({ ...c, storageType: 'SUPABASE' })
+            })
+        } else {
+            console.error('❌ Failed to fetch cloud campaigns:', cloudResults.reason)
+        }
+
+        // Sort combined list by date
+        campaigns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
 
         return NextResponse.json({ campaigns })
     } catch (error) {
@@ -42,6 +71,8 @@ export async function POST(request) {
             messageTemplate,
             senderName,
             senderEmail,
+            storageType = 'SQLITE', // Default to SQLite if not specified
+            config
         } = body
 
         // Validation
@@ -51,8 +82,11 @@ export async function POST(request) {
             }, { status: 400 })
         }
 
+        // Select Database
+        const db = storageType === 'SUPABASE' ? prismaSupabase : prisma
+
         // Create campaign
-        const campaign = await prisma.campaign.create({
+        const campaign = await db.campaign.create({
             data: {
                 name,
                 processingMode,
@@ -62,10 +96,13 @@ export async function POST(request) {
                 messageTemplate,
                 senderName,
                 senderEmail,
+                config // Pass config JSON if present
             },
         })
 
-        return NextResponse.json({ campaign }, { status: 201 })
+        return NextResponse.json({
+            campaign: { ...campaign, storageType }
+        }, { status: 201 })
 
     } catch (error) {
         console.error('Error creating campaign:', error)

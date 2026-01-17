@@ -322,6 +322,22 @@ export default function EnhancedTestPage() {
                     Parallel processing • Smart crawling • Anti-detection
                 </p>
 
+                {/* Database Status */}
+                <div className="card mb-6 border-l-4 border-green-500 bg-green-900/10">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">🗄️</span>
+                            <div>
+                                <h3 className="font-bold text-green-400">Database: Supabase (Cloud)</h3>
+                                <p className="text-sm text-gray-400">High performance mode enabled. Data synced to cloud.</p>
+                            </div>
+                        </div>
+                        <div className="px-3 py-1 bg-green-900/50 text-green-300 text-xs rounded-full border border-green-500/30">
+                            Active
+                        </div>
+                    </div>
+                </div>
+
                 {/* Speed Profiles */}
                 <div className="card mb-6">
                     <h2 className="text-xl font-bold mb-4">⚡ Speed Profiles</h2>
@@ -1000,6 +1016,6 @@ export default function EnhancedTestPage() {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     )
 }

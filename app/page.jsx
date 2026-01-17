@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import CampaignCard from '@/components/CampaignCard'
+import CreateCampaignModal from '@/components/CreateCampaignModal'
 
 function WorkerStatus() {
     const [status, setStatus] = useState(null)
@@ -90,6 +91,7 @@ export default function HomePage() {
     const [campaigns, setCampaigns] = useState([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
     const fetchCampaigns = async () => {
         try {
@@ -160,9 +162,12 @@ export default function HomePage() {
                                 🗑️ Reset System
                             </button>
 
-                            <Link href="/campaigns/create" className="btn-primary flex items-center gap-2">
+                            <button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="btn-primary flex items-center gap-2"
+                            >
                                 🚀 New Campaign
-                            </Link>
+                            </button>
                         </div>
                     </div>
                 </header>
@@ -216,9 +221,12 @@ export default function HomePage() {
                     ) : campaigns.length === 0 ? (
                         <div className="card text-center py-20">
                             <p className="text-gray-400 text-lg mb-4">No campaigns yet</p>
-                            <Link href="/campaigns/create" className="btn-primary inline-block">
+                            <button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="btn-primary inline-block"
+                            >
                                 Create Your First Campaign
-                            </Link>
+                            </button>
                         </div>
                     ) : (
                         <div className="grid gap-6">
@@ -233,6 +241,15 @@ export default function HomePage() {
                     )}
                 </div>
             </div>
+
+            {/* Creation Modal */}
+            <CreateCampaignModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                onCampaignCreated={() => {
+                    fetchCampaigns()
+                }}
+            />
         </div>
     )
 }
