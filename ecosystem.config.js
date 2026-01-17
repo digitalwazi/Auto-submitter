@@ -2,8 +2,8 @@ module.exports = {
     apps: [
         {
             name: "auto-submitter-web",
-            script: "npm",
-            args: "start",
+            script: "./start.sh",
+            interpreter: "bash",
             instances: 1,
             exec_mode: "fork",
             env: {
