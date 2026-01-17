@@ -14,8 +14,8 @@ module.exports = {
         {
             name: "auto-submitter-worker",
             script: "workers/queue-worker.js",
-            instances: "max",  // Scale to all available CPU cores
-            exec_mode: "cluster",
+            instances: 1,  // SQLite requires single writer
+            exec_mode: "fork",
             autorestart: true,
             watch: false,
             max_memory_restart: "1G",
