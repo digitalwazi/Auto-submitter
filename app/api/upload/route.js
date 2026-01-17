@@ -57,38 +57,46 @@ export async function POST(request) {
             access: 'public',
         })
 
-        // Create domain records
-        const created = []
-        for (const domainUrl of domains) {
+        // Create domain records in batches for large uploads (prevents 500 errors with 10K+ domains)
+        const BATCH_SIZE = 200
+        let domainsCreated = 0
+
+        console.log(`📦 Starting batched insertion of ${domains.length} domains...`)
+
+        for (let i = 0; i < domains.length; i += BATCH_SIZE) {
+            const batch = domains.slice(i, i + BATCH_SIZE)
+
             try {
-                const domain = await prisma.domain.create({
-                    data: {
+                await prisma.domain.createMany({
+                    data: batch.map(url => ({
                         campaignId,
-                        url: domainUrl,
-                    },
+                        url,
+                        status: 'PENDING',
+                    })),
                 })
 
-                // Queue domain analysis task
-                await prisma.processingQueue.create({
-                    data: {
-                        campaignId,
-                        domainId: domain.id,
-                        taskType: 'ANALYZE_DOMAIN',
-                        priority: 10,
-                    },
-                })
+                domainsCreated += batch.length
 
-                created.push(domain)
+                // Log progress for large uploads
+                if (domains.length > 1000 && domainsCreated % 1000 === 0) {
+                    console.log(`📦 Created ${domainsCreated}/${domains.length} domains...`)
+                }
+
+                // Yield to prevent blocking (important for large uploads)
+                if (domains.length > 1000) {
+                    await new Promise(resolve => setTimeout(resolve, 50))
+                }
             } catch (error) {
-                console.error(`Failed to create domain ${domainUrl}:`, error.message)
+                console.error(`Failed to create batch at index ${i}:`, error.message)
             }
         }
+
+        console.log(`✅ Finished inserting ${domainsCreated} domains`)
 
         return NextResponse.json({
             success: true,
             blobUrl: blob.url,
-            domainsCreated: created.length,
-            domains: created,
+            domainsCreated,
         })
 
     } catch (error) {

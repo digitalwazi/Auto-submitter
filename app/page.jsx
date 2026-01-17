@@ -4,6 +4,88 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import CampaignCard from '@/components/CampaignCard'
 
+function WorkerStatus() {
+    const [status, setStatus] = useState(null)
+    const [loading, setLoading] = useState(false)
+
+    const fetchStatus = async () => {
+        try {
+            const res = await fetch('/api/system/workers')
+            const data = await res.json()
+            setStatus(data)
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    const controlWorker = async (action, count = null) => {
+        if (!confirm(`Are you sure you want to ${action} workers?`)) return
+        setLoading(true)
+        try {
+            await fetch('/api/system/workers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, count })
+            })
+            setTimeout(fetchStatus, 2000) // Wait for PM2 to react
+        } catch (e) {
+            alert(e.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchStatus()
+        const interval = setInterval(fetchStatus, 5000)
+        return () => clearInterval(interval)
+    }, [])
+
+    if (!status) return <span className="text-gray-500">Loading...</span>
+
+    return (
+        <div>
+            <div className="flex items-center gap-3 mb-2">
+                <span className={`text-3xl font-bold ${status.count > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {status.count}
+                </span>
+                <span className="text-xs px-2 py-1 bg-gray-800 rounded uppercase">
+                    {status.status || 'STOPPED'}
+                </span>
+            </div>
+
+            <div className="flex gap-2 text-xs">
+                {status.count === 0 ? (
+                    <button
+                        onClick={() => controlWorker('start')}
+                        disabled={loading}
+                        className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded"
+                    >
+                        Start (4)
+                    </button>
+                ) : (
+                    <>
+                        <button
+                            onClick={() => controlWorker('stop')}
+                            disabled={loading}
+                            className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded"
+                        >
+                            Stop
+                        </button>
+                        <button
+                            onClick={() => controlWorker('scale', 8)}
+                            disabled={loading}
+                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                        >
+                            Scale to 8
+                        </button>
+                    </>
+                )}
+            </div>
+        </div>
+    )
+}
+
 export default function HomePage() {
     const [campaigns, setCampaigns] = useState([])
     const [loading, setLoading] = useState(true)
@@ -33,29 +115,6 @@ export default function HomePage() {
 
         return () => clearInterval(interval)
     }, [])
-
-    const handleManualProcess = async () => {
-        if (!confirm('Trigger manual processing?')) return
-
-        try {
-            const response = await fetch('/api/process/manual', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ maxTasks: 20, maxTimeSeconds: 240 }),
-            })
-
-            const result = await response.json()
-
-            if (result.success) {
-                alert(`Processed ${result.tasksProcessed} tasks in ${result.timeElapsed}s`)
-                fetchCampaigns()
-            } else {
-                alert(`Processing failed: ${result.error}`)
-            }
-        } catch (error) {
-            alert(`Error: ${error.message}`)
-        }
-    }
 
     const handleReset = async () => {
         if (!confirm('⚠️ DANGER: This will DELETE ALL DATA (Campaigns, Domains, Logs). Are you sure?')) return
@@ -101,8 +160,8 @@ export default function HomePage() {
                                 🗑️ Reset System
                             </button>
 
-                            <Link href="/test" className="btn-primary flex items-center gap-2">
-                                🚀 New Campaign (Advanced)
+                            <Link href="/campaigns/create" className="btn-primary flex items-center gap-2">
+                                🚀 New Campaign
                             </Link>
                         </div>
                     </div>
@@ -110,6 +169,15 @@ export default function HomePage() {
 
                 {/* Stats Overview */}
                 <div className="grid grid-cols-4 gap-6 mb-8">
+                    {/* Worker Status Card */}
+                    <div className="card border-l-4 border-indigo-500 relative overflow-hidden">
+                        <div className="relative z-10">
+                            <p className="text-gray-400 text-sm mb-1">Queue Workers</p>
+                            <WorkerStatus />
+                        </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-indigo-900/20 to-transparent pointer-events-none" />
+                    </div>
+
                     <div className="card">
                         <p className="text-gray-400 text-sm mb-1">Total Campaigns</p>
                         <p className="text-3xl font-bold">{campaigns.length}</p>
@@ -123,16 +191,9 @@ export default function HomePage() {
                     </div>
 
                     <div className="card">
-                        <p className="text-gray-400 text-sm mb-1">Forms Submitted</p>
+                        <p className="text-gray-400 text-sm mb-1">Total Progress</p>
                         <p className="text-3xl font-bold text-blue-400">
-                            {campaigns.reduce((sum, c) => sum + c.formsSubmitted, 0)}
-                        </p>
-                    </div>
-
-                    <div className="card">
-                        <p className="text-gray-400 text-sm mb-1">Comments Posted</p>
-                        <p className="text-3xl font-bold text-purple-400">
-                            {campaigns.reduce((sum, c) => sum + c.commentsSubmitted, 0)}
+                            {campaigns.reduce((sum, c) => sum + (c.processedDomains || 0), 0)}
                         </p>
                     </div>
                 </div>

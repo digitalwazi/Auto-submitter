@@ -18,7 +18,7 @@ export async function GET(request, props) {
                 }
             },
             orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-            // Removed limit as per user request (was take: 1000)
+            take: 1000,  // Limit to prevent memory issues with 10K+ domains
         })
 
         const contacts = await prisma.extractedContact.findMany({
