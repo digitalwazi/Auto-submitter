@@ -13,7 +13,7 @@ export async function POST(request) {
             // Set a cookie (httpOnly for security)
             // Since it's a simple script, we set it for 7 days
             const extraOptions = {
-                secure: process.env.NODE_ENV === 'production',
+                secure: false, // process.env.NODE_ENV === 'production', // Disabled for now to support HTTP IP access
                 sameSite: 'strict',
                 path: '/',
                 maxAge: 60 * 60 * 24 * 7, // 7 days
