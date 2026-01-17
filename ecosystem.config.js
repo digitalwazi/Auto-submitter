@@ -2,7 +2,7 @@ module.exports = {
     apps: [
         {
             name: "auto-submitter-web",
-            script: "node_modules/next/dist/bin/next",
+            script: "npm",
             args: "start",
             instances: 1,
             exec_mode: "fork",
