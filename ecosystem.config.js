@@ -29,7 +29,7 @@ module.exports = {
             name: "direct-submit-worker",
             script: "workers/direct-submit-worker.js",
             instances: 1,  // Single instance to prevent duplicate submissions
-            exec_mode: "cluster",
+            exec_mode: "fork",
             autorestart: true,
             watch: false,
             max_memory_restart: "1G",
