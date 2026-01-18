@@ -323,16 +323,16 @@ export default function EnhancedTestPage() {
                 </p>
 
                 {/* Database Status */}
-                <div className="card mb-6 border-l-4 border-green-500 bg-green-900/10">
+                <div className="card mb-6 border-l-4 border-blue-500 bg-blue-900/10">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <span className="text-2xl">🗄️</span>
                             <div>
-                                <h3 className="font-bold text-green-400">Database: Supabase (Cloud)</h3>
-                                <p className="text-sm text-gray-400">High performance mode enabled. Data synced to cloud.</p>
+                                <h3 className="font-bold text-blue-400">Database: SQLite (Local)</h3>
+                                <p className="text-sm text-gray-400">Stable mode enabled. High reliability for large datasets.</p>
                             </div>
                         </div>
-                        <div className="px-3 py-1 bg-green-900/50 text-green-300 text-xs rounded-full border border-green-500/30">
+                        <div className="px-3 py-1 bg-blue-900/50 text-blue-300 text-xs rounded-full border border-blue-500/30">
                             Active
                         </div>
                     </div>
