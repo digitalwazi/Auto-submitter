@@ -134,52 +134,9 @@ export async function GET(request, props) {
             }
         }
 
-        // === FETCH CAMPAIGN LEVEL CONTACTS ===
-        // Fetch these separately and merge
-        const campaignContacts = await prisma.extractedContact.findMany({
-            where: { campaignId },
-        })
-
-        // We need a lookup for domain URLs since extractedContact only has domainId
-        // Ideally we would include domain in the query, but that might be heavy if many contacts.
-        // Let's optimize: Fetch simple map of domainId -> url
-        const domainMap = new Map()
-        // We already iterated all domains above? No, we might have millions.
-        // If we have millions, existing "domainMap" logic would break memory.
-        // But for contacts, we can just do a join.
-
-        // Actually, let's just fetch contacts WITH their domain url
-        const campaignContactsWithDomain = await prisma.extractedContact.findMany({
-            where: { campaignId },
-            include: {
-                domain: {
-                    select: { url: true }
-                }
-            }
-        })
-
-        for (const contact of campaignContactsWithDomain) {
-            const domainUrl = contact.domain?.url || ''
-
-            // Check for duplicates in existing data (optional, but might be slow if array is huge)
-            // For massive exports, we might skip the duplication check or assume the batch above caught domain-contacts.
-            // The original logic checked `contactsData` which is an array of arrays.
-            // Iterating a huge array is O(N). Doing this for every contact is O(N^2). Bad for performance.
-            // Let's rely on the Set or Map if needed, or just append distinct ones.
-            // Pragmantic approach: The relationships `domain.contacts` covers contacts linked to a specific domain.
-            // The table ExtractedContact connects Campaign and Domain.
-            // The previous loop over `domain.contacts` ALREADY covered these if they are linked to the domain.
-            // So we technically duplicated work if we fetch them again. 
-            // `domain.contacts` relation is `ExtractedContact[]`.
-            // So the batch loop above ALREADY added them!
-            // The only reason to fetch separately is if there are contacts NOT linked to a domain? 
-            // Schema says: `domain Domain @relation(...)`. It is mandatory (not optional?) 
-            // checking schema...
-            // Schema: `domain Domain @relation(...)` -> It is mandatory (no `?`).
-            // So EVERY contact belongs to a domain.
-            // THEREFORE: The batch loop `domain.include.contacts` ALREADY captured ALL contacts.
-            // We do NOT need this separate query. Removing it to avoid duplicates/waste.
-        }
+        // === CAMPAIGN LEVEL CONTACTS ===
+        // (Optimized: We assume all contacts are linked to domains and captured in the domain batch loop above.
+        // If there are standalone contacts, they would be missed, but our schema enforces domain relations.)
 
         // === APPEND SHEETS ===
         const ws_domains = XLSX.utils.aoa_to_sheet(domainsData)
