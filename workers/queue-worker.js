@@ -17,7 +17,7 @@
 import { processNextDomain, resetStuckDomains } from '../lib/queue/domain-processor.js'
 
 const POLL_INTERVAL = 3000 // Check every 3 seconds for new domains
-const BATCH_SIZE = 10 // Process 10 domains in parallel (High throughput for 16GB RAM)
+const BATCH_SIZE = 50 // Process 50 domains in parallel (High throughput for 16GB RAM)
 
 console.log('🚀 Domain Worker Started (Per-Domain Sequential Mode)')
 console.log(`⚙️  Poll Interval: ${POLL_INTERVAL}ms`)
