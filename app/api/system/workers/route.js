@@ -10,12 +10,12 @@ export async function GET() {
         const { stdout } = await execAsync('pm2 jlist')
         const processes = JSON.parse(stdout)
 
-        // Filter for queue-workers
-        const workers = processes.filter(p => p.name === 'queue-workers')
+        // Filter for the correct worker defined in ecosystem.config.cjs
+        const workers = processes.filter(p => p.name === 'auto-submitter-worker')
 
         return NextResponse.json({
             success: true,
-            running: workers.length > 0,
+            running: workers.length > 0 && workers[0].pm2_env.status === 'online',
             count: workers.length,
             status: workers.length > 0 ? workers[0].pm2_env.status : 'stopped',
             cpu: workers.reduce((sum, w) => sum + (w.monit?.cpu || 0), 0),
@@ -37,14 +37,17 @@ export async function GET() {
 export async function POST(request) {
     try {
         const body = await request.json()
-        const { action, count } = body
+        const { action } = body
 
         if (action === 'start') {
-            await execAsync('pm2 start workers/queue-worker.js -i 4 --name queue-workers')
+            // Restart the existing managed process instead of spawning new ones
+            await execAsync('pm2 start auto-submitter-worker')
         } else if (action === 'stop') {
-            await execAsync('pm2 delete queue-workers')
-        } else if (action === 'scale' && count) {
-            await execAsync(`pm2 scale queue-workers ${count}`)
+            await execAsync('pm2 stop auto-submitter-worker')
+        } else if (action === 'scale') {
+            // SQLite does not support scaling. Ignore or restart.
+            // Just ensure it is running 1 instance.
+            await execAsync('pm2 start auto-submitter-worker')
         }
 
         return NextResponse.json({ success: true, message: `Action ${action} executed` })

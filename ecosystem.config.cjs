@@ -20,7 +20,7 @@ module.exports = {
             autorestart: true,
             watch: false,
             max_memory_restart: "1G",
-            cron_restart: "0 */4 * * *",  // Restart every 4 hours
+
             env: {
                 NODE_ENV: "production"
             }
