@@ -70,6 +70,9 @@ export async function GET(request, props) {
         const BATCH_SIZE = 500
         let skip = 0
         let hasMore = true
+        let totalDomainsProcessed = 0
+
+        console.log(`[Export ${campaignId}] Starting domain fetch...`)
 
         while (hasMore) {
             const domains = await prisma.domain.findMany({
@@ -87,11 +90,15 @@ export async function GET(request, props) {
                 orderBy: { id: 'asc' } // Stable ordering for batches
             })
 
+            console.log(`[Export ${campaignId}] Fetched domain batch of ${domains.length} (Skip: ${skip})`)
+
             if (domains.length < BATCH_SIZE) {
                 hasMore = false
             } else {
                 skip += BATCH_SIZE
             }
+
+            totalDomainsProcessed += domains.length
 
             // Process this batch
             for (const domain of domains) {
@@ -133,12 +140,14 @@ export async function GET(request, props) {
                 }
             }
         }
+        console.log(`[Export ${campaignId}] Finished processing ${totalDomainsProcessed} domains.`)
 
         // === CAMPAIGN LEVEL CONTACTS ===
         // (Optimized: We assume all contacts are linked to domains and captured in the domain batch loop above.
         // If there are standalone contacts, they would be missed, but our schema enforces domain relations.)
 
         // === APPEND SHEETS ===
+        console.log(`[Export ${campaignId}] Appending sheets to workbook...`)
         const ws_domains = XLSX.utils.aoa_to_sheet(domainsData)
         XLSX.utils.book_append_sheet(wb, ws_domains, 'Domains')
 
@@ -157,6 +166,7 @@ export async function GET(request, props) {
         let subSkip = 0
         let subHasMore = true
 
+        console.log(`[Export ${campaignId}] Starting submissions fetch...`)
         while (subHasMore) {
             const submissions = await prisma.submissionLog.findMany({
                 where: { campaignId },
@@ -169,6 +179,8 @@ export async function GET(request, props) {
                 skip: subSkip,
                 orderBy: { submittedAt: 'desc' }
             })
+
+            console.log(`[Export ${campaignId}] Fetched submission batch of ${submissions.length}`)
 
             if (submissions.length < BATCH_SIZE) {
                 subHasMore = false
@@ -191,7 +203,9 @@ export async function GET(request, props) {
         XLSX.utils.book_append_sheet(wb, ws_submissions, 'Submissions')
 
         // Generate buffer
+        console.log(`[Export ${campaignId}] Writing Excel buffer...`)
         const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+        console.log(`[Export ${campaignId}] Buffer created (Size: ${buffer.length} bytes). Sending response.`)
 
         // Return as downloadable file
         return new NextResponse(buffer, {
