@@ -87,6 +87,157 @@ function WorkerStatus() {
     )
 }
 
+// Auto-Restart Control Component
+function AutoRestartControl() {
+    const [settings, setSettings] = useState({ enabled: false, intervalMinutes: 30 })
+    const [loading, setLoading] = useState(false)
+    const [interval, setInterval] = useState(30)
+
+    const fetchSettings = async () => {
+        try {
+            const res = await fetch('/api/system/restart')
+            const data = await res.json()
+            setSettings(data)
+            setInterval(data.intervalMinutes || 30)
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    useEffect(() => {
+        fetchSettings()
+    }, [])
+
+    const toggleAutoRestart = async () => {
+        setLoading(true)
+        try {
+            const action = settings.enabled ? 'disable' : 'enable'
+            const res = await fetch('/api/system/restart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, intervalMinutes: interval })
+            })
+            const data = await res.json()
+            setSettings(data)
+        } catch (e) {
+            alert(e.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const restartNow = async () => {
+        if (!confirm('Restart all workers NOW?')) return
+        setLoading(true)
+        try {
+            await fetch('/api/system/restart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'restart-now' })
+            })
+            alert('Workers restarted!')
+        } catch (e) {
+            alert(e.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    return (
+        <div className="card border-l-4 border-amber-500">
+            <p className="text-gray-400 text-sm mb-2">⏰ Auto-Restart</p>
+            <div className="flex items-center gap-3 mb-3">
+                <button
+                    onClick={toggleAutoRestart}
+                    disabled={loading}
+                    className={`px-3 py-1 rounded text-sm font-medium ${settings.enabled
+                            ? 'bg-green-600 hover:bg-green-700'
+                            : 'bg-gray-700 hover:bg-gray-600'
+                        }`}
+                >
+                    {settings.enabled ? '✅ ON' : '❌ OFF'}
+                </button>
+                <select
+                    value={interval}
+                    onChange={(e) => setInterval(parseInt(e.target.value))}
+                    className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
+                    disabled={settings.enabled}
+                >
+                    <option value={10}>Every 10 min</option>
+                    <option value={20}>Every 20 min</option>
+                    <option value={30}>Every 30 min</option>
+                    <option value={60}>Every 60 min</option>
+                </select>
+            </div>
+            <button
+                onClick={restartNow}
+                disabled={loading}
+                className="w-full px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-xs"
+            >
+                🔄 Restart Now
+            </button>
+        </div>
+    )
+}
+
+// Real-time Terminal View Component
+function TerminalView() {
+    const [logs, setLogs] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [expanded, setExpanded] = useState(false)
+
+    const fetchLogs = async () => {
+        setLoading(true)
+        try {
+            const res = await fetch('/api/system/logs?lines=100')
+            const data = await res.json()
+            setLogs(data.logs || 'No logs available')
+        } catch (e) {
+            setLogs(`Error: ${e.message}`)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchLogs()
+        const interval = setInterval(fetchLogs, 5000) // Refresh every 5 seconds
+        return () => clearInterval(interval)
+    }, [])
+
+    return (
+        <div className="card mt-6">
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                    <span className="text-lg">🖥️</span>
+                    <h3 className="font-bold">Real-time Terminal</h3>
+                    {loading && <span className="text-xs text-gray-500 animate-pulse">refreshing...</span>}
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={fetchLogs}
+                        className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+                    >
+                        🔄 Refresh
+                    </button>
+                    <button
+                        onClick={() => setExpanded(!expanded)}
+                        className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+                    >
+                        {expanded ? '📥 Collapse' : '📤 Expand'}
+                    </button>
+                </div>
+            </div>
+            <div
+                className={`bg-black rounded-lg p-4 font-mono text-xs text-green-400 overflow-auto whitespace-pre-wrap ${expanded ? 'h-96' : 'h-48'
+                    }`}
+            >
+                {logs}
+            </div>
+        </div>
+    )
+}
+
 export default function HomePage() {
     const [campaigns, setCampaigns] = useState([])
     const [loading, setLoading] = useState(true)
@@ -173,7 +324,7 @@ export default function HomePage() {
                 </header>
 
                 {/* Stats Overview */}
-                <div className="grid grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-5 gap-6 mb-8">
                     {/* Worker Status Card */}
                     <div className="card border-l-4 border-indigo-500 relative overflow-hidden">
                         <div className="relative z-10">
@@ -182,6 +333,9 @@ export default function HomePage() {
                         </div>
                         <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-indigo-900/20 to-transparent pointer-events-none" />
                     </div>
+
+                    {/* Auto-Restart Card */}
+                    <AutoRestartControl />
 
                     <div className="card">
                         <p className="text-gray-400 text-sm mb-1">Total Campaigns</p>
@@ -203,8 +357,11 @@ export default function HomePage() {
                     </div>
                 </div>
 
+                {/* Real-time Terminal */}
+                <TerminalView />
+
                 {/* Campaigns List */}
-                <div>
+                <div className="mt-8">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-2xl font-bold">Campaigns</h2>
                         {refreshing && (
