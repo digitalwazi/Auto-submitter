@@ -31,8 +31,8 @@ export async function POST(request) {
     if (config.runInBackground) {
         try {
             // Import db helper to get correct client based on storageType
-            const { getDbClient } = await import('@/lib/db')
-            const db = getDbClient(config.storageType || 'sqlite')
+            const { getDbClientAsync } = await import('@/lib/db')
+            const db = await getDbClientAsync(config.storageType || 'sqlite')
 
             // 1. Create Campaign with storageType
             const campaign = await db.campaign.create({

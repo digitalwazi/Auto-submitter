@@ -151,8 +151,8 @@ function AutoRestartControl() {
                     onClick={toggleAutoRestart}
                     disabled={loading}
                     className={`px-3 py-1 rounded text-sm font-medium ${settings.enabled
-                            ? 'bg-green-600 hover:bg-green-700'
-                            : 'bg-gray-700 hover:bg-gray-600'
+                        ? 'bg-green-600 hover:bg-green-700'
+                        : 'bg-gray-700 hover:bg-gray-600'
                         }`}
                 >
                     {settings.enabled ? '✅ ON' : '❌ OFF'}
@@ -179,6 +179,141 @@ function AutoRestartControl() {
         </div>
     )
 }
+
+// Supabase Settings Component
+function SupabaseSettings() {
+    const [status, setStatus] = useState({ configured: false, url: '' })
+    const [newUrl, setNewUrl] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [showInput, setShowInput] = useState(false)
+    const [connectionStatus, setConnectionStatus] = useState(null) // null, 'testing', 'success', 'failed'
+    const [connectionError, setConnectionError] = useState('')
+
+    const fetchStatus = async () => {
+        try {
+            const res = await fetch('/api/system/supabase')
+            const data = await res.json()
+            setStatus(data)
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    useEffect(() => {
+        fetchStatus()
+    }, [])
+
+    const testConnection = async () => {
+        setConnectionStatus('testing')
+        setConnectionError('')
+        try {
+            const res = await fetch('/api/system/supabase', { method: 'PUT' })
+            const data = await res.json()
+            if (data.connected) {
+                setConnectionStatus('success')
+            } else {
+                setConnectionStatus('failed')
+                setConnectionError(data.error || 'Connection failed')
+            }
+        } catch (e) {
+            setConnectionStatus('failed')
+            setConnectionError(e.message)
+        }
+    }
+
+    const saveUrl = async () => {
+        if (!newUrl.trim()) return
+        setLoading(true)
+        try {
+            const res = await fetch('/api/system/supabase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ supabaseUrl: newUrl })
+            })
+            const data = await res.json()
+            if (data.success) {
+                alert('✅ Supabase URL saved! Restart PM2 to apply.')
+                setShowInput(false)
+                setConnectionStatus(null)
+                fetchStatus()
+            } else {
+                alert('❌ Error: ' + data.error)
+            }
+        } catch (e) {
+            alert('❌ Error: ' + e.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    return (
+        <div className="card border-l-4 border-purple-500">
+            <p className="text-gray-400 text-sm mb-2">🗄️ Supabase Database</p>
+            {status.configured ? (
+                <div className="text-xs">
+                    <div className="flex items-center gap-2">
+                        <span className="text-green-400">✅ Configured</span>
+                        {connectionStatus === 'testing' && <span className="text-yellow-400 animate-pulse">Testing...</span>}
+                        {connectionStatus === 'success' && <span className="text-green-400">🟢 Connected</span>}
+                        {connectionStatus === 'failed' && <span className="text-red-400">🔴 Failed</span>}
+                    </div>
+                    <p className="text-gray-500 mt-1 break-all text-xs">{status.url}</p>
+                    {connectionStatus === 'failed' && connectionError && (
+                        <p className="text-red-400 text-xs mt-1">{connectionError}</p>
+                    )}
+                </div>
+            ) : (
+                <span className="text-yellow-400 text-xs">⚠️ Not configured</span>
+            )}
+
+            {showInput ? (
+                <div className="mt-2">
+                    <input
+                        type="text"
+                        value={newUrl}
+                        onChange={(e) => setNewUrl(e.target.value)}
+                        placeholder="postgresql://user:pass@host:5432/db"
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs mb-2"
+                    />
+                    <div className="flex gap-2">
+                        <button
+                            onClick={saveUrl}
+                            disabled={loading}
+                            className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs"
+                        >
+                            💾 Save
+                        </button>
+                        <button
+                            onClick={() => setShowInput(false)}
+                            className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="mt-2 flex gap-2">
+                    <button
+                        onClick={() => setShowInput(true)}
+                        className="flex-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+                    >
+                        {status.configured ? '✏️ Change' : '➕ Add'}
+                    </button>
+                    {status.configured && (
+                        <button
+                            onClick={testConnection}
+                            disabled={connectionStatus === 'testing'}
+                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                        >
+                            🔌 Test
+                        </button>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+
 
 // Real-time Terminal View Component
 function TerminalView() {
@@ -324,7 +459,7 @@ export default function HomePage() {
                 </header>
 
                 {/* Stats Overview */}
-                <div className="grid grid-cols-5 gap-6 mb-8">
+                <div className="grid grid-cols-6 gap-4 mb-8">
                     {/* Worker Status Card */}
                     <div className="card border-l-4 border-indigo-500 relative overflow-hidden">
                         <div className="relative z-10">
@@ -336,6 +471,9 @@ export default function HomePage() {
 
                     {/* Auto-Restart Card */}
                     <AutoRestartControl />
+
+                    {/* Supabase Settings Card */}
+                    <SupabaseSettings />
 
                     <div className="card">
                         <p className="text-gray-400 text-sm mb-1">Total Campaigns</p>
