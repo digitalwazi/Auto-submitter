@@ -92,14 +92,19 @@ export async function POST(request) {
                         const batch = domains.slice(i, i + insertBatchSize)
 
                         // Use createMany for bulk insert performance
-                        await db.domain.createMany({
+                        // Note: skipDuplicates is ONLY supported in PostgreSQL, not SQLite
+                        const createOptions = {
                             data: batch.map(url => ({
                                 campaignId: campaign.id,
                                 url: url,
                                 status: 'PENDING',
                             })),
-                            skipDuplicates: config.storageType === 'supabase', // Only supported in Postgres
-                        })
+                        }
+                        // Only add skipDuplicates for PostgreSQL (Supabase)
+                        if (config.storageType === 'supabase') {
+                            createOptions.skipDuplicates = true
+                        }
+                        await db.domain.createMany(createOptions)
 
                         processed += batch.length
 
