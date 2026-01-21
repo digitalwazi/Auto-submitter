@@ -30,11 +30,12 @@ export async function POST(request) {
     // === BACKGROUND MODE ===
     if (config.runInBackground) {
         try {
-            // Import prisma dynamically to avoid issues if not used
-            const { default: prisma } = await import('@/lib/db')
+            // Import db helper to get correct client based on storageType
+            const { getDbClient } = await import('@/lib/db')
+            const db = getDbClient(config.storageType || 'sqlite')
 
-            // 1. Create Campaign
-            const campaign = await prisma.campaign.create({
+            // 1. Create Campaign with storageType
+            const campaign = await db.campaign.create({
                 data: {
                     name: config.campaignName?.trim() || `Campaign ${new Date().toLocaleString()}`,
                     status: 'RUNNING',
@@ -45,7 +46,12 @@ export async function POST(request) {
                     messageTemplate: config.message || config.messageTemplate || '',
                     senderName: config.senderName || '',
                     senderEmail: config.senderEmail || '',
-                    config: JSON.stringify(config),
+                    config: JSON.stringify({
+                        ...config,
+                        workers: config.workers || 1,
+                        batchSize: config.batchSize || 10
+                    }),
+                    storageType: config.storageType || 'sqlite',
                     totalDomains: domains.length,
                 }
             })
@@ -77,22 +83,22 @@ export async function POST(request) {
                 try {
                     // BATCH SIZE NOTE: SQLite has a variable limit. 500 * 3 fields = 1500 vars.
                     // Safe limit is usually around 999 for older SQLite, but we'll stick to 200 to be ultra-safe.
-                    const batchSize = 200 // Reduced from 500 to 200 to avoid SQLite parameter limits
+                    const insertBatchSize = 200 // Reduced from 500 to 200 to avoid SQLite parameter limits
                     let processed = 0
 
-                    console.log(`🚀 Starting background insertion of ${domains.length} domains for campaign ${campaign.id}`)
+                    console.log(`🚀 Starting background insertion of ${domains.length} domains for campaign ${campaign.id} (${config.storageType || 'sqlite'})`)
 
-                    for (let i = 0; i < domains.length; i += batchSize) {
-                        const batch = domains.slice(i, i + batchSize)
+                    for (let i = 0; i < domains.length; i += insertBatchSize) {
+                        const batch = domains.slice(i, i + insertBatchSize)
 
                         // Use createMany for bulk insert performance
-                        await prisma.domain.createMany({
+                        await db.domain.createMany({
                             data: batch.map(url => ({
                                 campaignId: campaign.id,
                                 url: url,
                                 status: 'PENDING',
                             })),
-                            // Note: skipDuplicates not supported in SQLite
+                            skipDuplicates: config.storageType === 'supabase', // Only supported in Postgres
                         })
 
                         processed += batch.length

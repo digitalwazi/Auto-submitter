@@ -68,6 +68,11 @@ export default function EnhancedTestPage() {
 
         // Background Mode
         runInBackground: false,
+
+        // === WORKER & DATABASE SETTINGS ===
+        workers: 1,          // 1-8 PM2 worker processes
+        batchSize: 10,       // 5-100 domains per batch
+        storageType: 'sqlite', // 'sqlite' or 'supabase'
     })
 
     const [checkingSystem, setCheckingSystem] = useState(false)
@@ -322,20 +327,71 @@ export default function EnhancedTestPage() {
                     Parallel processing • Smart crawling • Anti-detection
                 </p>
 
-                {/* Database Status */}
-                <div className="card mb-6 border-l-4 border-blue-500 bg-blue-900/10">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <span className="text-2xl">🗄️</span>
-                            <div>
-                                <h3 className="font-bold text-blue-400">Database: SQLite (Local)</h3>
-                                <p className="text-sm text-gray-400">Stable mode enabled. High reliability for large datasets.</p>
-                            </div>
+                {/* ⚙️ Worker & Database Settings */}
+                <div className="card mb-6 border-2 border-amber-500/30">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span className="text-amber-400">⚙️</span> Worker & Database Settings
+                        <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded">CRITICAL</span>
+                    </h2>
+
+                    <div className="grid grid-cols-3 gap-6">
+                        {/* Workers */}
+                        <div>
+                            <label className="text-sm text-gray-400">Workers (PM2 Processes)</label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="8"
+                                value={config.workers}
+                                onChange={(e) => setConfig({ ...config, workers: Math.min(8, Math.max(1, parseInt(e.target.value) || 1)) })}
+                                className="input w-full mt-1"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">More workers = faster, uses more RAM</p>
                         </div>
-                        <div className="px-3 py-1 bg-blue-900/50 text-blue-300 text-xs rounded-full border border-blue-500/30">
-                            Active
+
+                        {/* Batch Size */}
+                        <div>
+                            <label className="text-sm text-gray-400">Batch Size (Domains per tick)</label>
+                            <input
+                                type="number"
+                                min="5"
+                                max="100"
+                                step="5"
+                                value={config.batchSize}
+                                onChange={(e) => setConfig({ ...config, batchSize: Math.min(100, Math.max(5, parseInt(e.target.value) || 10)) })}
+                                className="input w-full mt-1"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Lower = more accurate. Higher = faster.</p>
+                        </div>
+
+                        {/* Database Selection */}
+                        <div>
+                            <label className="text-sm text-gray-400">Database</label>
+                            <select
+                                value={config.storageType}
+                                onChange={(e) => setConfig({ ...config, storageType: e.target.value })}
+                                className="input w-full mt-1"
+                            >
+                                <option value="sqlite">🗄️ SQLite (Local - Stable)</option>
+                                <option value="supabase">☁️ Supabase (Cloud - Multi-Worker)</option>
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {config.storageType === 'supabase'
+                                    ? '✅ Supabase allows multiple workers without locks'
+                                    : '⚠️ SQLite: Use 1 worker to avoid locks'}
+                            </p>
                         </div>
                     </div>
+
+                    {/* Warning for SQLite + Multiple Workers */}
+                    {config.storageType === 'sqlite' && config.workers > 1 && (
+                        <div className="mt-4 p-3 bg-red-900/30 border border-red-500/30 rounded-lg">
+                            <p className="text-red-300 text-sm">
+                                <strong>⚠️ Warning:</strong> SQLite with multiple workers may cause database lock errors.
+                                Consider using Supabase or reducing workers to 1.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Speed Profiles */}

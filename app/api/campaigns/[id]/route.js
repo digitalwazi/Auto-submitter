@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/db'
+import prisma, { getDbClient } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
-// Get campaign details
+// Helper to get client based on campaign's storageType
+async function getCampaignClient(id) {
+    // First try SQLite
+    let campaign = await prisma.campaign.findUnique({ where: { id } })
+    if (campaign) return { campaign, db: prisma }
+
+    // Try Supabase if not found
+    const { getPrismaSupabase } = await import('@/lib/db')
+    const supabase = getPrismaSupabase()
+    if (supabase) {
+        campaign = await supabase.campaign.findUnique({ where: { id } })
+        if (campaign) return { campaign, db: supabase }
+    }
+
+    return { campaign: null, db: null }
+}
+
 // Get campaign details
 export async function GET(request, props) {
     const params = await props.params;
@@ -11,17 +27,15 @@ export async function GET(request, props) {
         const { id } = params
         console.log(`🔍 API fetching campaign: ${id}`)
 
-        const campaign = await prisma.campaign.findUnique({
-            where: { id },
-        })
+        const { campaign, db } = await getCampaignClient(id)
 
-        if (!campaign) {
-            console.error(`❌ Campaign ${id} NOT FOUND in DB`)
+        if (!campaign || !db) {
+            console.error(`❌ Campaign ${id} NOT FOUND in any DB`)
             return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
         }
 
         // Get queue stats for real progress calculation based on DOMAINS
-        const queueStats = await prisma.domain.groupBy({
+        const queueStats = await db.domain.groupBy({
             by: ['status'],
             where: { campaignId: id },
             _count: {
@@ -41,7 +55,7 @@ export async function GET(request, props) {
         })
 
         // Fetch logs (paginated)
-        const activityLogs = await prisma.processingQueue.findMany({
+        const activityLogs = await db.processingQueue.findMany({
             where: { campaignId: id },
             orderBy: { createdAt: 'desc' },
             take: 50,
@@ -77,6 +91,11 @@ export async function PATCH(request, props) {
         const { id } = params
         const body = await request.json()
 
+        const { campaign: existingCampaign, db } = await getCampaignClient(id)
+        if (!existingCampaign || !db) {
+            return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+        }
+
         const { status, ...updateData } = body
 
         // If changing status to RUNNING, set startedAt
@@ -92,7 +111,7 @@ export async function PATCH(request, props) {
             updateData.completedAt = new Date()
         }
 
-        const campaign = await prisma.campaign.update({
+        const campaign = await db.campaign.update({
             where: { id },
             data: updateData,
         })
@@ -105,17 +124,24 @@ export async function PATCH(request, props) {
     }
 }
 
-// Delete campaign
+// Delete campaign (CASCADE deletes all related data via Prisma schema)
 export async function DELETE(request, props) {
     const params = await props.params;
     try {
         const { id } = params
 
-        await prisma.campaign.delete({
+        const { campaign, db } = await getCampaignClient(id)
+        if (!campaign || !db) {
+            return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+        }
+
+        console.log(`🗑️ Deleting campaign ${id} from ${campaign.storageType || 'sqlite'} (cascade will remove all related data)`)
+
+        await db.campaign.delete({
             where: { id },
         })
 
-        return NextResponse.json({ success: true })
+        return NextResponse.json({ success: true, message: `Campaign and all related data deleted from ${campaign.storageType || 'sqlite'}` })
 
     } catch (error) {
         console.error('Error deleting campaign:', error)

@@ -24,6 +24,7 @@ model Campaign {
   senderName        String   @default("")
   senderEmail       String   @default("")
   config            String?  // JSON string for advanced crawler/submitter options
+  storageType       String   @default("supabase")  // "sqlite" or "supabase"
   
   // Stats
   totalDomains      Int      @default(0)
